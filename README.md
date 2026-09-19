@@ -688,6 +688,20 @@ A：可以。运行时只写 `DATA_DIR`，上传也落在 `DATA_DIR/uploads` 并
 
 ## 十四、更新记录
 
+### v2.14.1（当前）
+- **修复：站点换成 https 访问后，后台进不去（"验证码加载失败：Failed to fetch"）**
+  根因不在验证码，而在 **CORS**：浏览器发起 POST 等请求时会带上**当前页面**的 Origin，
+  而白名单里只写了 `http://localhost:3001` —— 换成 `https://localhost:3001`（或换成 NAS / 反代域名）后，
+  **自己的同源请求被当成了跨站**，一律 403，前端只能看到 "Failed to fetch"。
+  现在 **同源请求永远放行**（Origin 的 host 与本次请求的 Host 一致即可），跨站来源依旧 403。
+  白名单默认也补上了 https 变体。
+- 顺带：
+  - 本地想用 https 现在开箱可用：`.local/tls/` 里的自签证书 + `.env` 里的 `SSL_CERT` / `SSL_KEY` /
+    `HTTPS_REDIRECT_PORT=3000`（http://localhost:3000 会 302 跳到 https）
+  - 测试套件支持自签 https 实例：`BASE_URL=https://localhost:3001 npm test`（内部自动放开自签校验，
+    仅影响测试进程）；`tests/smoke.mjs` 的 `httpGet` 也会按协议自动选 http/https
+  - smoke 新增 2 项回归断言：同源 https Origin 放行、跨站 Origin 仍 403（共 36 项）
+
 ### v2.14.0（当前）
 - **顶栏开源仓库图标**（可在后台配置地址并一键开关）
   - 顶栏右侧多了一个 GitHub 图标（内联 SVG，不依赖外部资源），新窗口打开、带 `rel="noopener noreferrer"`

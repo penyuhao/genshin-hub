@@ -38,18 +38,41 @@ const allowedOrigins = (process.env.ALLOWED_ORIGIN || 'http://localhost:3001')
   .map((s) => s.trim())
   .filter(Boolean);
 
-const corsConfig = cors({
-  origin(origin, cb) {
-    // 同源请求（无 Origin 头）直接放行
-    if (!origin) return cb(null, true);
-    if (allowedOrigins.includes(origin)) return cb(null, true);
-    return cb(new Error('CORS: 来源不在白名单内'));
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false,
-  maxAge: 600,
-});
+/**
+ * 同源请求永远放行。
+ *
+ * 为什么必须这样：浏览器对 POST/PUT 等请求会带上**当前页面**的 Origin，
+ * 一旦站点的协议/端口/域名有任何变化（例如从 http 换成 https 自签证书访问），
+ * 或者部署到 NAS / 反向代理后面的其他域名，白名单就会把**自己的同源请求**判成跨域：
+ * 表现是"验证码加载失败：Failed to fetch""后台进不去"，而白名单看起来又没写错。
+ * 这里只要 Origin 的 host 与本次请求的 Host 一致，就直接放行。
+ */
+function isSameOrigin(origin, req) {
+  try {
+    const parsed = new URL(origin);
+    const host = String(req.headers.host || '').trim().toLowerCase();
+    if (!host) return false;
+    return parsed.host.toLowerCase() === host;
+  } catch {
+    return false;
+  }
+}
+
+// cors 的 origin 回调拿不到 req，所以这里按请求包一层
+const corsConfig = (req, res, next) =>
+  cors({
+    origin(origin, cb) {
+      // 同源请求（无 Origin 头）直接放行
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      if (isSameOrigin(origin, req)) return cb(null, true);
+      return cb(new Error('CORS: 来源不在白名单内'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false,
+    maxAge: 600,
+  })(req, res, next);
 
 // ---- 限流参数（可用环境变量调整，生产默认严格）----
 const API_MAX = Number(process.env.API_RATE_LIMIT_MAX) > 0 ? Number(process.env.API_RATE_LIMIT_MAX) : 100;

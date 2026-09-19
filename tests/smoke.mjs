@@ -9,17 +9,29 @@
 //      不会把任何凭据写死在代码里。
 import fs from 'node:fs';
 import http from 'node:http';
+import https from 'node:https';
 import path from 'node:path';
 
 const BASE = (process.env.BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
+// 本地自签 HTTPS 实例：Node 默认不信任自签证书，测试里放开校验（只影响测试进程）
+if (String(BASE).startsWith('https:')) process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const ROOT = path.resolve(import.meta.dirname, '..');
 
-/** 用 node:http 发一次 GET（fetch 不允许设置 If-None-Match 这类条件请求头） */
+/** 用 node:http / node:https 发一次 GET（fetch 不允许设置 If-None-Match、Origin 这类头） */
 function httpGet(pathname, headers = {}) {
   return new Promise((resolve, reject) => {
     const url = new URL(`${BASE}${pathname}`);
-    const req = http.request(
-      { method: 'GET', hostname: url.hostname, port: url.port || 80, path: url.pathname + url.search, headers },
+    // 本地自签 https 实例也要能测（只影响测试进程）
+    const client = url.protocol === 'https:' ? https : http;
+    const req = client.request(
+      {
+        method: 'GET',
+        hostname: url.hostname,
+        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: url.pathname + url.search,
+        headers,
+        ...(url.protocol === 'https:' ? { rejectUnauthorized: false } : {}),
+      },
       (res) => {
         res.resume();
         res.on('end', () => resolve({ status: res.statusCode, headers: res.headers }));
@@ -101,6 +113,17 @@ check('CSP 的图片/媒体允许 http:（自建 http 站点也能用外链图�
   /img-src[^;]*http:/.test(cspHeader) && /media-src[^;]*http:/.test(cspHeader), cspHeader.slice(0, 140));
 check('X-Frame-Options = DENY', health.headers.get('x-frame-options') === 'DENY');
 check('X-Content-Type-Options = nosniff', health.headers.get('x-content-type-options') === 'nosniff');
+
+// 回归：站点换成 https（自签证书 / 反代域名）后，浏览器会带 https 的 Origin，
+// 白名单只写 http 会把**同源**请求判成跨域 → "验证码加载失败：Failed to fetch"、后台进不去。
+// 同源请求必须永远放行（Origin 头在浏览器里是禁设的，所以这里用 node:http 发）
+{
+  const sameOrigin = await httpGet('/api/config', { Origin: `https://${new URL(BASE).host}` });
+  check('同源请求带 https Origin 也放行（换成 https 访问后台不会进不去）',
+    sameOrigin.status === 200, `HTTP ${sameOrigin.status}`);
+  const crossSite = await httpGet('/api/config', { Origin: 'https://evil.example.com' });
+  check('真正的跨站来源仍然被拒（403）', crossSite.status === 403, `HTTP ${crossSite.status}`);
+}
 
 // /health 报出的版本要和 package.json 一致：排查"更新了却没生效"时靠它确认跑的是哪一版
 const pkgVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8')).version;

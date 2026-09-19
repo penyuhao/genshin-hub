@@ -8,6 +8,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const BASE = process.env.BASE_URL || 'http://localhost:3001';
+// 本地自签 HTTPS 实例：Node 默认不信任自签证书，测试里放开校验（只影响测试进程）
+if (String(BASE).startsWith('https:')) process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const ROOT = path.resolve(import.meta.dirname, '..');
 
 let pass = 0;
