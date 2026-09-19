@@ -157,6 +157,63 @@ router.get('/uploads/limits', (req, res) => {
   });
 });
 
+/**
+ * GET /api/uploads/list — 媒体库（管理员）：列出数据目录里已有的图片/视频。
+ *
+ * 为什么需要它：部署到 Docker / NAS 之后，文件都在挂载卷里（例如宿主机的
+ * ./data/uploads/images/），从后台想引用它们的"地址"很别扭 —— 得先知道文件名、
+ * 再拼 /uploads/images/xxx。这个接口直接把它们列出来，点一下就填好。
+ * 也方便用户用文件管理器/NAS 界面直接往这个目录里丢图，然后在后台里选。
+ */
+router.get('/uploads/list', requireAdmin, async (req, res, next) => {
+  try {
+    const readDir = async (dir, prefix) => {
+      let files = [];
+      try {
+        files = await fsp.readdir(dir, { withFileTypes: true });
+      } catch {
+        return [];
+      }
+      const out = [];
+      for (const entry of files) {
+        if (!entry.isFile()) continue;
+        const ext = path.extname(entry.name).toLowerCase();
+        const isImage = IMAGE_TYPES.has(ext);
+        const isVideo = VIDEO_TYPES.has(ext);
+        if (!isImage && !isVideo) continue;
+        const stat = await fsp.stat(path.join(dir, entry.name)).catch(() => null);
+        if (!stat) continue;
+        out.push({
+          url: `${prefix}/${entry.name}`,
+          name: entry.name,
+          kind: isImage ? 'image' : 'video',
+          size: stat.size,
+          mtime: stat.mtime.toISOString(),
+        });
+      }
+      return out;
+    };
+
+    const [images, videos] = await Promise.all([
+      readDir(IMAGE_DIR, paths.IMAGE_URL_PREFIX),
+      readDir(VIDEO_DIR, paths.VIDEO_URL_PREFIX),
+    ]);
+
+    const items = [...images, ...videos].sort((a, b) => (a.mtime < b.mtime ? 1 : -1));
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      items,
+      dirs: {
+        images: IMAGE_DIR,
+        videos: VIDEO_DIR,
+        hint: '把图片/视频直接放进这个目录（Docker 就是挂载卷里的 data/uploads/images），刷新媒体库就能选到',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /** POST /api/uploads/image — 上传背景图/Logo（管理员） */
 router.post('/uploads/image', requireAdmin, handleUpload(uploadImage.single('file'), IMAGE_MAX_MB), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未收到文件' });

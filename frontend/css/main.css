@@ -785,7 +785,47 @@ html.is-page-animating {
   transform: scale(1.02); /* 轻微放大，避免模糊后边缘露白 */
 }
 
-/* 覆盖色：统一色调（在背景图之上、遮罩之下） */
+/* 多张背景图轮播：两层交叉淡入淡出 */
+.pb-rotator { transition: opacity 1.6s ease-in-out; }
+
+/* 媒体库：缩略图点选（解决"部署在 Docker / NAS 时拿不到地址"） */
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px;
+  margin-top: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(5, 8, 16, 0.6);
+}
+
+.media-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 13, 26, 0.6);
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.media-item:hover { transform: translateY(-2px); border-color: rgba(232, 200, 119, 0.5); }
+
+.media-thumb {
+  width: 100%;
+  height: 56px;
+  border-radius: 6px;
+  background-color: #070b16;
+  background-size: cover;
+  background-position: center;
+}
+
+.media-name { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pb-overlay { background: var(--pb-overlay, transparent); }
 
 /* 遮罩 / 装饰图：混合模式决定是"发光"还是"压暗" */

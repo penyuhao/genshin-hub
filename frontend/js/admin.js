@@ -48,6 +48,60 @@ function normalizeUrlInput(value) {
   return value;
 }
 
+/** 媒体库缓存（一次拉取，按钮点开时用） */
+let mediaCache = null;
+async function loadMediaLibrary(token) {
+  if (mediaCache) return mediaCache;
+  try {
+    const res = await fetchWithTimeout('/api/uploads/list', {
+      headers: { Authorization: `Bearer ${token}` },
+    }, 12000);
+    if (!res.ok) return null;
+    mediaCache = await res.json();
+  } catch {
+    return null;
+  }
+  return mediaCache;
+}
+
+/** 媒体库选择器：部署在 Docker / NAS 时，文件都在挂载卷里，直接点比手拼地址靠谱 */
+function buildMediaPicker({ token, accept = 'image', onPick }) {
+  const box = el('div', { class: 'media-grid', hidden: true });
+  const toggle = el('button', {
+    class: 'mini-btn', type: 'button', text: '从媒体库选',
+    title: '列出数据目录里已有的图片/视频；把文件放进挂载卷的 data/uploads 目录即可出现在这里',
+    onclick: async () => {
+      if (!box.hidden) {
+        box.hidden = true;
+        return;
+      }
+      box.hidden = false;
+      clear(box);
+      box.appendChild(el('p', { class: 'field-hint', text: '读取中…' }));
+      const data = await loadMediaLibrary(token);
+      clear(box);
+      const items = (data?.items || []).filter((item) => accept === 'all' || item.kind === accept);
+      if (!items.length) {
+        box.appendChild(el('p', { class: 'field-hint',
+          text: `媒体库里还没有${accept === 'image' ? '图片' : '文件'}。把文件放进这个目录后刷新即可：${data?.dirs?.images || 'DATA_DIR/uploads/images'}` }));
+        return;
+      }
+      for (const item of items) {
+        box.appendChild(el('button', {
+          class: 'media-item', type: 'button', title: item.url,
+          onclick: () => {
+            onPick(item);
+            box.hidden = true;
+          },
+        },
+          el('span', { class: 'media-thumb', style: { backgroundImage: item.kind === 'image' ? `url("${item.url}")` : 'none' } }),
+          el('span', { class: 'media-name', text: `${item.name.slice(0, 22)} · ${Math.round(item.size / 1024)}KB` })));
+      }
+    },
+  });
+  return el('div', { class: 'media-picker' }, toggle, box);
+}
+
 /** 内置遮罩素材（与 frontend/images/masks 对应）：点一下就填好，不用手打路径 */
 const BUILTIN_MASKS = [  { path: '/images/masks/dots.svg', label: '点阵' },
   { path: '/images/masks/grid.svg', label: '方格' },
@@ -277,7 +331,19 @@ const SECTIONS = [
               { value: 'about', label: '关于页' },
             ],
           },
-          { key: 'image', label: '背景图', type: 'image', group: '基本', hint: '留空 = 保持透明，能看到星空背景；也可以点「从链接导入」把官方站点的美术图存到本地' },
+          { key: 'image', label: '背景图', type: 'image', group: '基本', hint: '留空 = 保持透明，能看到星空背景；也可以点「从链接导入」把官方站点的美术图存到本地，或用「从媒体库选」直接挑已上传的图' },
+          {
+            key: 'imagesText',
+            label: '多张背景图（一行一个地址，会自动轮播）',
+            type: 'textarea',
+            rows: 3,
+            group: '基本',
+            hint: '填了这里就以它为准：按下面的间隔秒数交叉淡入淡出。地址可以用「从媒体库选」或「从链接导入」拿到',
+          },
+          {
+            key: 'interval', label: '轮播间隔（秒）', type: 'number', group: '基本',
+            min: 4, max: 300, step: 1, default: 12, slider: true,
+          },
           { key: 'mask', label: '遮罩 / 装饰图', type: 'mask', group: '基本', hint: '点下面的缩略图即可选用（内置素材）；也可以填自己的图片地址或上传' },
           {
             key: 'maskOpacity', label: '遮罩不透明度', type: 'number', group: '遮罩',
@@ -1260,6 +1326,17 @@ export class AdminPanel {
       });
 
       wrap.append(el('div', { class: 'upload-row' }, preview, el('div', { style: { flex: '1', minWidth: '220px' } }, input, el('div', { style: { marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' } }, uploadBtn, importBtn)), file));
+      // 媒体库：不用知道地址，点一张就填好（Docker / NAS 部署尤其有用）
+      wrap.appendChild(buildMediaPicker({
+        token: this.token,
+        accept: 'image',
+        onPick: (item) => {
+          input.value = item.url;
+          formState[field.key] = item.url;
+          preview.src = item.url;
+          toast('已从媒体库填入地址', 'success');
+        },
+      }));
     } else if (field.type === 'video') {
       // 背景视频：URL + 上传 + 预览 + 清除
       const preview = el('video', {
@@ -1367,6 +1444,10 @@ export class AdminPanel {
       }
 
       items.forEach((item, index) => {
+        // 「多张背景图」在表单里是一行一个地址，存进配置时转回数组（见 collectForm）
+        if (field.key === 'layers' && Array.isArray(item.images)) {
+          item.imagesText = item.images.join('\n');
+        }
         // 条目标题：能用「界面名 / 屏标题」这类可读文字就别用"第 N 项"
         const title = typeof field.itemTitle === 'function'
           ? field.itemTitle(item, index)
@@ -1456,6 +1537,18 @@ export class AdminPanel {
       if (input.closest('.repeat-item')) continue;
       if (input.type === 'number') formState[key] = Number(input.value);
       else formState[key] = input.value;
+    }
+    // 「多张背景图」：表单里一行一个地址 → 存回配置时变成数组
+    const layers = formState?.layers;
+    if (Array.isArray(layers)) {
+      for (const layer of layers) {
+        if (typeof layer?.imagesText === 'string') {
+          const list = layer.imagesText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+          if (list.length) layer.images = list;
+          else delete layer.images;
+          delete layer.imagesText;
+        }
+      }
     }
     return formState;
   }

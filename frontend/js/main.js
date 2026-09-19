@@ -778,6 +778,10 @@ function safeCssUrl(value) {
 }
 
 function renderBackgrounds(config) {
+  // 重新渲染前先清掉上一轮的轮播定时器，避免越切越快
+  (state.backgroundTimers || []).forEach((timer) => clearInterval(timer));
+  state.backgroundTimers = [];
+
   const layers = Array.isArray(config.backgrounds?.layers) ? config.backgrounds.layers : [];
   const byView = new Map();
   for (const layer of layers) {
@@ -801,11 +805,16 @@ function renderBackgrounds(config) {
     host.querySelectorAll(':scope > .page-bg').forEach((node) => node.remove());
 
     const layer = byView.get(view);
-    const image = safeCssUrl(layer?.image);
+    const single = safeCssUrl(layer?.image);
+    // 多张背景图：交叉淡入淡出轮播（填了 images 就以它为准）
+    const list = (Array.isArray(layer?.images) ? layer.images : [])
+      .map((item) => safeCssUrl(item))
+      .filter(Boolean);
+    const images = list.length ? list : (single ? [single] : []);
     const mask = safeCssUrl(layer?.mask);
     const hasOverlay = layer?.overlayColor && Number(layer?.overlayOpacity) > 0;
 
-    if (!image && !mask && !hasOverlay) {
+    if (!images.length && !mask && !hasOverlay) {
       host.classList.remove('has-page-bg');
       continue;
     }
@@ -820,8 +829,32 @@ function renderBackgrounds(config) {
       },
     });
 
-    if (image) {
-      node.appendChild(el('i', { class: 'pb-image', style: { backgroundImage: `url("${image}")` } }));
+    if (images.length) {
+      // 前两张各占一层，靠 opacity 交叉淡入淡出；再多就循环复用这两层
+      const layers = images.slice(0, 2);
+      layers.forEach((src, index) => {
+        node.appendChild(el('i', {
+          class: `pb-image${images.length > 1 ? ' pb-rotator' : ''}`,
+          dataset: { index: String(index) },
+          style: { backgroundImage: `url("${src}")`, opacity: index === 0 ? '1' : '0' },
+        }));
+      });
+
+      if (images.length > 1 && !prefersReducedMotion()) {
+        const seconds = Number(layer?.interval) > 0 ? Number(layer.interval) : 12;
+        const layerEls = node.querySelectorAll('.pb-image');
+        let current = 0;
+        const timer = setInterval(() => {
+          if (document.hidden) return; // 切到后台就别转了
+          const next = (current + 1) % images.length;
+          layerEls[current % 2].style.opacity = '0';
+          layerEls[next % 2].style.backgroundImage = `url("${images[next]}")`;
+          layerEls[next % 2].style.opacity = '1';
+          current = next;
+        }, Math.max(4, seconds) * 1000);
+        state.backgroundTimers = state.backgroundTimers || [];
+        state.backgroundTimers.push(timer);
+      }
     }
     if (hasOverlay) {
       node.appendChild(el('i', {

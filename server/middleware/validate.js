@@ -277,6 +277,9 @@ const backgroundLayerSchema = z.object({
   view: z.enum(BACKGROUND_VIEWS),
   label: cleanStr(30).optional(),
   image: optionalUrl,
+  /** 多张背景图：会按 interval 秒自动轮播（交叉淡入淡出）；填了它就以它为准 */
+  images: z.array(safeUrl).max(12).optional(),
+  interval: z.number().int().min(4).max(300).optional(),
   mask: optionalUrl,
   maskOpacity: z.number().min(0).max(1).optional(),
   maskBlend: z.enum(['normal', 'screen', 'overlay', 'soft-light', 'multiply', 'luminosity']).optional(),

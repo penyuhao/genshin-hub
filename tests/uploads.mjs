@@ -312,6 +312,42 @@ async function main() {
   });
   check('支持「全局（星空那一层）」背景', globalOk.status === 200, `HTTP ${globalOk.status}`);
 
+  console.log('\n[7] 多张背景图 + 媒体库');
+  const multiOk = await jsonReq('/api/config/backgrounds', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      layers: [{
+        view: 'download',
+        images: ['/uploads/images/a.webp', '/uploads/images/b.webp', '/images/masks/dots.svg'],
+        interval: 8,
+      }],
+    }),
+  });
+  check('可以给一个界面配多张背景图', multiOk.status === 200, `HTTP ${multiOk.status} ${JSON.stringify(multiOk.json).slice(0, 120)}`);
+  const multiSaved = (await jsonReq('/api/config')).json?.backgrounds?.layers?.find((l) => l.view === 'download');
+  check('多张背景图与轮播间隔都持久化了',
+    multiSaved?.images?.length === 3 && multiSaved?.interval === 8, JSON.stringify(multiSaved || null));
+
+  const badInterval = await jsonReq('/api/config/backgrounds', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ layers: [{ view: 'about', images: ['/images/masks/dots.svg'], interval: 1 }] }),
+  });
+  check('轮播间隔过短会被拒（防止闪屏）', badInterval.status === 400, `HTTP ${badInterval.status}`);
+
+  const mediaNoAuth = await jsonReq('/api/uploads/list');
+  check('媒体库需要管理员权限', mediaNoAuth.status === 401, `HTTP ${mediaNoAuth.status}`);
+
+  const media = await jsonReq('/api/uploads/list', { headers: { Authorization: `Bearer ${token}` } });
+  check('媒体库列出已上传的文件（省去手拼地址）',
+    media.status === 200 && Array.isArray(media.json?.items) && media.json.items.length >= 1,
+    `HTTP ${media.status} / ${media.json?.items?.length} 个文件`);
+  check('媒体库返回可直接使用的地址与目录提示',
+    (media.json?.items || []).every((it) => String(it.url).startsWith('/uploads/'))
+    && Boolean(media.json?.dirs?.images),
+    JSON.stringify(media.json?.items?.[0] || null));
+
   console.log('\n[7] 从链接导入图片（官方站点美术图）');
   // 本地起一个只服务测试图片的站点（隔离实例已用 ALLOW_PRIVATE_IMAGE_IMPORT=true 放开内网限制）
   const http = await import('node:http');
