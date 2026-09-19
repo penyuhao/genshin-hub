@@ -377,6 +377,42 @@ async function main() {
   check('未登录不允许抓取外部图片', noAuth.status === 401, `HTTP ${noAuth.status}`);
   imgServer.close();
 
+  console.log('\n[8] 站点体检接口');
+  const diagNoAuth = await jsonReq('/api/diagnostics');
+  check('体检接口需要管理员权限', diagNoAuth.status === 401, `HTTP ${diagNoAuth.status}`);
+
+  const diag = await jsonReq('/api/diagnostics', { headers: { Authorization: `Bearer ${token}` } });
+  check('体检返回结构化清单', diag.status === 200 && Array.isArray(diag.json?.checks) && diag.json.checks.length > 5,
+    `HTTP ${diag.status} / ${diag.json?.checks?.length} 项`);
+  check('体检结果分级统计正确',
+    typeof diag.json?.summary?.ok === 'number'
+    && diag.json.summary.ok + diag.json.summary.warn + diag.json.summary.error === diag.json.checks.length,
+    JSON.stringify(diag.json?.summary));
+  check('体检覆盖数据目录与版本等运行环境项',
+    diag.json.checks.some((c) => c.id === 'env:data-dir') && diag.json.checks.some((c) => c.id === 'env:version'),
+    diag.json.checks.slice(0, 3).map((c) => c.id).join(','));
+
+  // 故意放一个不存在的本地图片，体检必须报出来
+  await jsonReq('/api/config/backgrounds', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      layers: [{ view: 'about', image: '/uploads/images/definitely-missing.webp', mask: '' }],
+    }),
+  });
+  const diagBroken = await jsonReq('/api/diagnostics', { headers: { Authorization: `Bearer ${token}` } });
+  check('体检能发现"配置里引用的文件不存在"',
+    (diagBroken.json?.summary?.error || 0) >= 1
+    && diagBroken.json.checks.some((c) => c.level === 'error' && /找不到文件/.test(c.title)),
+    JSON.stringify(diagBroken.json?.summary));
+
+  // 还原
+  await jsonReq('/api/config/backgrounds', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ layers: [{ view: 'about', mask: '/images/masks/waves.svg', maskOpacity: 0.14 }] }),
+  });
+
   console.log('\n=== 测试结果 ===');
   console.log(`  通过: ${pass}`);
   console.log(`  失败: ${fail}`);

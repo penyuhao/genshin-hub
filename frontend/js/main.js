@@ -699,7 +699,11 @@ function safeCssUrl(value) {
   const raw = String(value ?? '').trim();
   if (!raw) return '';
   if (!/^(\/[^\s"'()\\]*|https?:\/\/[^\s"'()\\]+)$/i.test(raw)) return '';
-  if (raw.includes('..')) return '';
+  // ".." 只对**站内相对路径**有意义（防目录穿越）。
+  // 外链里出现 ".." 是完全正常的 —— 例如官方 CDN 的 home@1x.78a07083..jpg，
+  // 以前这里一刀切，导致这种地址被静默丢掉、背景"设了没反应"。
+  const isRelative = raw.startsWith('/') && !raw.startsWith('//');
+  if (isRelative && raw.includes('..')) return '';
   return raw;
 }
 

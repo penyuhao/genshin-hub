@@ -72,7 +72,7 @@ const VIEW_LABELS = {
 const SECTION_GROUPS = [
   { title: '内容', keys: ['site', 'hero', 'backgrounds', 'navigation', 'links', 'download', 'about'] },
   { title: '外观', keys: ['theme', 'features', 'music'] },
-  { title: '系统', keys: ['fonts', '__kuma', '__security', '__backups'] },
+  { title: '系统', keys: ['fonts', '__diagnostics', '__kuma', '__security', '__backups'] },
 ];
 
 /** 上传体积上限（来自服务端，可被部署环境用环境变量调整） */let uploadLimitsCache = null;
@@ -637,6 +637,97 @@ export class AdminPanel {
 
   /* ---------------- 主界面 ---------------- */
 
+  /** 站点体检：把"哪里有问题"列成清单，能点的直接跳过去改 */
+  async renderDiagnostics(main) {
+    clear(main);
+
+    const LEVEL = {
+      error: { icon: '✖', label: '需要处理', className: 'is-error' },
+      warn: { icon: '⚠', label: '建议看看', className: 'is-warn' },
+      ok: { icon: '✔', label: '正常', className: 'is-ok' },
+    };
+
+    const result = el('div', { class: 'diag-result' }, el('p', { class: 'field-hint', text: '点击「开始体检」检查运行环境、配置引用与常见坑（会访问配置里引用的外部地址，最多 24 个）' }));
+    const runBtn = el('button', { class: 'btn btn-primary', type: 'button', text: '开始体检' });
+
+    const renderReport = (report) => {
+      clear(result);
+      const { summary } = report;
+
+      const banner = el('div', {
+        class: `diag-banner ${summary.error ? 'is-error' : summary.warn ? 'is-warn' : 'is-ok'}`,
+      },
+        el('strong', {
+          text: summary.error
+            ? `发现 ${summary.error} 个需要处理的问题`
+            : summary.warn
+              ? `整体正常，有 ${summary.warn} 条建议`
+              : '一切正常 🎉',
+        }),
+        el('span', { class: 'diag-meta', text: `检查时间 ${new Date(report.ranAt).toLocaleString()} · 正常 ${summary.ok} / 建议 ${summary.warn} / 待处理 ${summary.error}` })
+      );
+      result.appendChild(banner);
+
+      for (const level of ['error', 'warn', 'ok']) {
+        const list = report.checks.filter((c) => c.level === level);
+        if (!list.length) continue;
+
+        const items = list.map((check) =>
+          el('div', { class: `diag-item ${LEVEL[check.level].className}` },
+            el('div', { class: 'diag-item-head' },
+              el('span', { class: 'diag-icon', text: LEVEL[check.level].icon }),
+              el('span', { class: 'diag-title', text: check.title })),
+            check.detail ? el('p', { class: 'diag-detail', text: check.detail }) : null,
+            check.hint ? el('p', { class: 'diag-hint', text: `建议：${check.hint}` }) : null));
+
+        const box = el('details', { class: `diag-group ${LEVEL[level].className}`, open: level !== 'ok' },
+          el('summary', { class: 'diag-group-summary' },
+            el('span', { text: `${LEVEL[level].icon} ${LEVEL[level].label}` }),
+            el('span', { class: 'field-group-count', text: `${list.length} 条` })),
+          el('div', { class: 'diag-group-body' }, ...items));
+
+        result.appendChild(box);
+      }
+    };
+
+    const run = async () => {
+      runBtn.classList.add('is-loading');
+      runBtn.textContent = '体检中…（要访问外部地址，稍等）';
+      try {
+        const res = await fetchWithTimeout('/api/diagnostics', {
+          headers: { Authorization: `Bearer ${this.token}` },
+        }, 45000);
+        if (res.status === 401) return this.handleUnauthorized();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || `体检失败（HTTP ${res.status}）`, 'error');
+          return;
+        }
+        renderReport(data);
+        toast(data.summary.error ? `发现 ${data.summary.error} 个问题` : '体检完成，未发现严重问题',
+          data.summary.error ? 'error' : 'success');
+      } catch (err) {
+        toast(`体检失败：${err.message}`, 'error');
+      } finally {
+        runBtn.classList.remove('is-loading');
+        runBtn.textContent = '重新体检';
+      }
+    };
+
+    runBtn.addEventListener('click', run);
+
+    main.append(
+      el('div', { class: 'admin-main-head' },
+        el('div', {},
+          el('h2', { text: '站点体检' }),
+          el('p', { class: 'desc', text: '检查运行环境、配置里引用的资源是否真的能访问，以及一些常见的配置坑' })),
+        el('div', { class: 'admin-actions' }, runBtn)),
+      result
+    );
+
+    await run();
+  }
+
   async renderShell() {
     clear(this.root);
     this.root.appendChild(el('div', { class: 'admin-shell', id: 'adminShell' }));
@@ -667,6 +758,7 @@ export class AdminPanel {
       features: '各视觉模块开关',
       music: '背景音乐地址与音量',
       fonts: '上传/登记字体',
+      __diagnostics: '一键体检：哪里有问题',
       __kuma: '对接 Uptime Kuma',
       __security: '改密码、验证码开关',
       __backups: '配置快照与还原',
@@ -765,6 +857,11 @@ export class AdminPanel {
 
     if (key === '__security') {
       await this.renderSecurity(main);
+      return;
+    }
+
+    if (key === '__diagnostics') {
+      await this.renderDiagnostics(main);
       return;
     }
 

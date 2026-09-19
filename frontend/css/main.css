@@ -1926,6 +1926,38 @@ body:not([data-view='home']) .scroll-hint {
   -webkit-backdrop-filter: blur(10px);
 }
 
+/* ---------- 站点体检 ---------- */
+.diag-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(9, 13, 26, 0.6);
+}
+
+.diag-banner.is-error { border-color: rgba(239, 68, 68, 0.55); background: rgba(239, 68, 68, 0.12); }
+.diag-banner.is-warn { border-color: rgba(251, 191, 36, 0.5); background: rgba(251, 191, 36, 0.1); }
+.diag-banner.is-ok { border-color: rgba(74, 222, 128, 0.45); background: rgba(74, 222, 128, 0.1); }
+.diag-meta { font-size: 12px; color: var(--text-muted); }
+
+.diag-group { border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; margin-bottom: 12px; background: rgba(9, 13, 26, 0.4); }
+.diag-group-summary { padding: 12px 14px; cursor: pointer; font-size: 14px; list-style: none; color: var(--text); }
+.diag-group-summary::-webkit-details-marker { display: none; }
+.diag-group-body { padding: 0 14px 12px; }
+
+.diag-item { padding: 10px 12px; border-radius: 10px; margin-bottom: 8px; background: rgba(5, 8, 16, 0.6); border-left: 3px solid rgba(255, 255, 255, 0.15); }
+.diag-item.is-error { border-left-color: var(--down); }
+.diag-item.is-warn { border-left-color: #fbbf24; }
+.diag-item.is-ok { border-left-color: var(--up); }
+.diag-item-head { display: flex; align-items: center; gap: 8px; }
+.diag-icon { width: 16px; text-align: center; }
+.diag-title { font-size: 14px; }
+.diag-detail { margin-top: 4px; font-size: 12px; color: var(--text-muted); word-break: break-all; }
+.diag-hint { margin-top: 4px; font-size: 12px; color: var(--gold); }
+
 /* ---------- 保存失败：常驻错误框 + 高亮出问题的字段 ---------- */.form-error {
   margin: 0 0 18px;
   padding: 14px 16px;
