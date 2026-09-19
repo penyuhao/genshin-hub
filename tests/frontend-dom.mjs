@@ -177,6 +177,24 @@ async function main() {
     window.document.documentElement.style.getPropertyValue('--gold'));
   check('favicon 由配置设置', (q('#faviconLink')?.getAttribute('href') || '').includes('favicon.svg'));
 
+  // 顶栏开源仓库图标：地址来自「站点设置」，开关来自「功能开关」
+  console.log('\n[阶段3.4] 顶栏开源仓库图标');
+  const repoLink = q('#repoLink');
+  check('顶栏有开源仓库图标（指向配置里的仓库地址）',
+    Boolean(repoLink) && (repoLink.getAttribute('href') || '').startsWith('https://github.com/'),
+    repoLink?.getAttribute('href'));
+  check('开源图标新窗口打开并带 noopener',
+    repoLink?.getAttribute('target') === '_blank'
+    && (repoLink?.getAttribute('rel') || '').includes('noopener'));
+  check('图标可访问（内联 SVG，不依赖外部资源）', Boolean(repoLink?.querySelector('svg')));
+  check('后台可配置地址/文案并有一键开关',
+    /key: 'repoUrl'/.test(readSrc('frontend/js/admin.js'))
+    && /key: 'enableRepoLink'/.test(readSrc('frontend/js/admin.js'))
+    && /repoUrl: optionalUrl/.test(readSrc('server/middleware/validate.js'))
+    && /enableRepoLink: z\.boolean/.test(readSrc('server/middleware/validate.js')));
+  check('关掉开关或清空地址时不显示',
+    /link\.hidden = !enabled/.test(readSrc('frontend/js/main.js')));
+
   // 页面背景：每个界面都能单独配（背景图 + 覆盖色 + 遮罩图），默认用内置遮罩纹理
   console.log('\n[阶段3.6] 页面背景自定义（背景图 / 覆盖色 / 遮罩图）');
   const bgHosts = ['#homeContent', '#view-download', '#view-tools', '#view-about'];

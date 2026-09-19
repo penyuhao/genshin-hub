@@ -103,6 +103,9 @@ const siteSchema = z.object({
   logo: optionalUrl,
   favicon: optionalUrl,
   footer: cleanStr(200).optional(),
+  /** 顶栏开源仓库图标：地址与文案（留空则不显示） */
+  repoUrl: optionalUrl,
+  repoLabel: cleanStr(40).optional(),
 });
 
 // ---------- 首页画廊 ----------
@@ -196,6 +199,8 @@ const featuresSchema = z.object({
   enableMouseTrail: z.boolean(),
   enableKumaPanel: z.boolean(),
   enableParallax: z.boolean(),
+  /** 顶栏开源仓库图标开关（默认开；地址在「站点设置」里填） */
+  enableRepoLink: z.boolean().optional(),
 });
 
 // ---------- 背景音乐 ----------

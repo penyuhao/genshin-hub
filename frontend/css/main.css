@@ -302,6 +302,28 @@ p { margin: 0; }
   transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }
 
+/* 开源仓库图标（顶栏）：与音乐按钮同一套观感，可在后台开关 */
+.repo-link {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(232, 200, 119, 0.28);
+  color: var(--gold);
+  display: grid;
+  place-items: center;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease, background 0.3s ease;
+}
+
+.repo-link:hover,
+.repo-link:focus-visible {
+  border-color: var(--gold);
+  background: rgba(232, 200, 119, 0.08);
+  box-shadow: 0 0 18px rgba(232, 200, 119, 0.3);
+  transform: scale(1.05);
+}
+
+.repo-link[hidden] { display: none; }
+
 .music-toggle:hover { border-color: var(--gold); box-shadow: 0 0 18px rgba(232, 200, 119, 0.3); transform: scale(1.05); }
 .music-toggle.is-playing { border-color: var(--gold); background: rgba(232, 200, 119, 0.08); }
 .music-toggle.is-playing .music-icon { animation: musicPulse 1.6s ease-in-out infinite; }

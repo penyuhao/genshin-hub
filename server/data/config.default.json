@@ -4,7 +4,9 @@
     "subtitle": "提瓦特旅行者手册",
     "logo": "/images/logo.svg",
     "favicon": "/images/favicon.svg",
-    "footer": "非官方粉丝站点 · 游戏素材版权归米哈游所有"
+    "footer": "非官方粉丝站点 · 游戏素材版权归米哈游所有",
+    "repoUrl": "https://github.com/penyuhao/genshin-hub",
+    "repoLabel": "GitHub 开源仓库"
   },
   "hero": {
     "slides": [
@@ -313,7 +315,8 @@
     "enableParticles": true,
     "enableMouseTrail": true,
     "enableKumaPanel": true,
-    "enableParallax": true
+    "enableParallax": true,
+    "enableRepoLink": true
   },
   "music": {
     "url": "",

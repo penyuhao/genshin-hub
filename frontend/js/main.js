@@ -680,6 +680,7 @@ function renderAll(config) {
   applyTheme(config.theme || {});
   applySiteMeta(config.site || {});
   renderNav(config);
+  applyRepoLink(config);
   renderGallery(config);
   renderBackgrounds(config);
   renderHomeContent(config);
@@ -722,6 +723,22 @@ function renderGallery(config) {
 
   // 一屏一步（滚轮由 Gallery 自己接管做动画，触摸交给 CSS 吸附）
   state.gallery.render(config.hero?.slides || []);
+}
+
+/** 顶栏的开源仓库图标：地址来自站点设置，开关来自功能开关 */
+function applyRepoLink(config) {
+  const link = qs('#repoLink');
+  if (!link) return;
+
+  const url = String(config.site?.repoUrl || '').trim();
+  const enabled = config.features?.enableRepoLink !== false && /^https?:\/\//i.test(url);
+
+  link.hidden = !enabled;
+  if (!enabled) return;
+
+  link.href = url;
+  link.title = config.site?.repoLabel ? `${config.site.repoLabel} · ${url}` : `开源仓库 · ${url}`;
+  link.setAttribute('aria-label', config.site?.repoLabel || '开源仓库');
 }
 
 /* ============================================================

@@ -156,6 +156,13 @@ const SECTIONS = [
       { key: 'logo', label: 'Logo 图片', type: 'image' },
       { key: 'favicon', label: 'favicon', type: 'image' },
       { key: 'footer', label: '页脚文案', type: 'text' },
+      {
+        key: 'repoUrl',
+        label: '开源仓库地址（顶栏图标跳这里）',
+        type: 'text',
+        hint: '默认填的是本项目的仓库；留空则不显示顶栏那个开源图标（也可以用下面的功能开关关掉）',
+      },
+      { key: 'repoLabel', label: '开源图标提示文案（可留空）', type: 'text', hint: '鼠标悬停时显示，例如「GitHub 开源仓库」' },
     ],
   },
   {
@@ -421,6 +428,7 @@ const SECTIONS = [
       { key: 'enableParallax', label: '视差滚动', type: 'boolean' },
       { key: 'enableKumaPanel', label: 'Kuma 状态面板', type: 'boolean' },
       { key: 'enableBackgroundMusic', label: '背景音乐', type: 'boolean' },
+      { key: 'enableRepoLink', label: '顶栏开源仓库图标（地址在「站点设置」里填）', type: 'boolean' },
     ],
   },
   {
