@@ -64,9 +64,34 @@ export class Gallery {
 
     this.slides.forEach((slide, index) => {
       const titleText = hasText(slide.title) ? slide.title : '';
+
+      // 逐屏外观：特效 / 对齐 / 垂直位置 / 字号倍率 / 遮罩强度 / Ken Burns
+      const effect = ['shine', 'gradient', 'neon', 'outline', 'offset', 'plain'].includes(slide.effect)
+        ? slide.effect
+        : 'shine';
+      const align = ['left', 'center', 'right'].includes(slide.align) ? slide.align : 'left';
+      const vertical = ['top', 'center', 'bottom'].includes(slide.vertical) ? slide.vertical : 'center';
+      const titleScale = typeof slide.titleScale === 'number' ? slide.titleScale : 1;
+      const kenBurns = slide.kenBurns !== false;
+      const scrim = typeof slide.scrim === 'number' ? slide.scrim : null;
+      const offsetX = typeof slide.offsetX === 'number' ? slide.offsetX : 0;
+      const offsetY = typeof slide.offsetY === 'number' ? slide.offsetY : 0;
+
       const slideEl = el('section', {
-        class: 'gallery-slide',
-        dataset: { index: String(index) },
+        class: [
+          'gallery-slide',
+          `effect-${effect}`,
+          `align-${align}`,
+          `v-${vertical}`,
+          kenBurns ? '' : 'no-kenburns',
+        ].filter(Boolean).join(' '),
+        dataset: { index: String(index), effect, align, vertical },
+        style: {
+          ...(scrim !== null ? { '--scrim': scrim } : {}),
+          ...(titleScale !== 1 ? { '--title-scale': titleScale } : {}),
+          ...(offsetX !== 0 ? { '--content-x': `${offsetX}%` } : {}),
+          ...(offsetY !== 0 ? { '--content-y': `${offsetY}%` } : {}),
+        },
         'aria-label': hasText(titleText) ? titleText : `第 ${index + 1} 屏`,
       });
 
@@ -94,7 +119,10 @@ export class Gallery {
           span.appendChild(el('span', { class: 'char', text: char }));
         }
         title.appendChild(span);
-        title.appendChild(el('span', { class: 'title-shine', 'aria-hidden': 'true' }));
+        // 只有需要光幕的特效才加这层
+        if (effect === 'shine') {
+          title.appendChild(el('span', { class: 'title-shine', 'aria-hidden': 'true' }));
+        }
         content.appendChild(title);
       }
 

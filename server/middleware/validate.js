@@ -83,6 +83,9 @@ const fontName = cleanStr(60).refine((s) => s === '' || /^[A-Za-z0-9 _\-'().]+$/
   message: '字体名只能包含字母、数字、空格与 _ - \' ( ) .',
 });
 
+/** 标题特效：每屏可选，配出完全不同的观感 */
+const TITLE_EFFECTS = ['shine', 'gradient', 'neon', 'outline', 'offset', 'plain'];
+
 const slideSchema = z.object({
   title: cleanStr(80, 1),
   subtitle: cleanStr(200).optional(),
@@ -92,6 +95,16 @@ const slideSchema = z.object({
   textColor: hexColor.optional(),
   cta: cleanStr(40).optional(), // 「进入网站」按钮文案，为空则不显示
   ctaView: z.enum(['home', 'download', 'tools', 'about']).optional(),
+
+  // ---- 逐屏外观（后台「画廊管理」可调）----
+  effect: z.enum(TITLE_EFFECTS).optional(), // 标题特效
+  align: z.enum(['left', 'center', 'right']).optional(), // 文字水平对齐
+  vertical: z.enum(['top', 'center', 'bottom']).optional(), // 文字垂直位置
+  offsetX: z.number().min(-45).max(45).optional(), // 文字水平微调（%，正数向右）
+  offsetY: z.number().min(-45).max(45).optional(), // 文字垂直微调（%，正数向下）
+  titleScale: z.number().min(0.5).max(1.8).optional(), // 标题字号倍率
+  kenBurns: z.boolean().optional(), // 该屏是否启用缓慢缩放
+  scrim: z.number().min(0.2).max(1).optional(), // 该屏遮罩强度（覆盖全局）
 });
 
 const heroSchema = z.object({
@@ -276,6 +289,7 @@ module.exports = {
   SECTION_SCHEMAS,
   SECTIONS,
   fontName,
+  TITLE_EFFECTS,
   loginSchema,
   kumaSettingsSchema,
   validateSection,

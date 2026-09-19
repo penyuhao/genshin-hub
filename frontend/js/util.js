@@ -17,8 +17,14 @@ export function el(tag, attrs = {}, ...children) {
     if (key === 'class') node.className = value;
     else if (key === 'text') node.textContent = String(value);
     else if (key === 'dataset') Object.assign(node.dataset, value);
-    else if (key === 'style' && typeof value === 'object') Object.assign(node.style, value);
-    else if (key.startsWith('on') && typeof value === 'function') {
+    else if (key === 'style' && typeof value === 'object') {
+      for (const [prop, val] of Object.entries(value)) {
+        if (val === null || val === undefined) continue;
+        // 支持 CSS 自定义属性（--xxx）
+        if (prop.startsWith('--')) node.style.setProperty(prop, String(val));
+        else node.style[prop] = val;
+      }
+    } else if (key.startsWith('on') && typeof value === 'function') {
       node.addEventListener(key.slice(2).toLowerCase(), value);
     } else if (value === true) node.setAttribute(key, '');
     else node.setAttribute(key, String(value));

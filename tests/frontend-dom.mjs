@@ -205,6 +205,38 @@ async function main() {
     /\.gallery-slide\.is-active \.title-shine\s*\{[^}]*animation:[^;]*?(\d*\.?\d+)s\s+infinite/.test(mainCss)
     && Number((mainCss.match(/\.gallery-slide\.is-active \.title-shine\s*\{[^}]*?(\d*\.?\d+)s\s+infinite/) || [])[1]) <= 0.9,
     '');
+
+  console.log('\n[阶段4+++] 逐屏外观自定义（特效 / 对齐 / 位置 / 字号 / 遮罩）');
+  const effects = qa('.gallery-slide').map((el2) => el2.dataset.effect);
+  const aligns = qa('.gallery-slide').map((el2) => el2.dataset.align);
+  const verticals = qa('.gallery-slide').map((el2) => el2.dataset.vertical);
+  check('每屏都带特效类', qa('.gallery-slide').every((el2) => /effect-[a-z]+/.test(el2.className)));
+  check('特效种类 ≥ 4 种（不再单一）', new Set(effects).size >= 4, `实际 ${new Set(effects).size}：${[...new Set(effects)].join(',')}`);
+  check('对齐用到 3 种', new Set(aligns).size === 3, aligns.join(','));
+  check('垂直位置用到 3 种', new Set(verticals).size === 3, verticals.join(','));
+  check('CSS 定义了全部 6 种特效',
+    ['shine', 'gradient', 'neon', 'outline', 'offset', 'plain'].every((e2) => mainCss.includes(`effect-${e2}`)),
+    '');
+  check('特效动画关键帧齐备（渐变流动 / 霓虹呼吸）',
+    /@keyframes\s+gradientFlow/.test(animationsCss) && /@keyframes\s+neonPulse/.test(animationsCss));
+  check('支持自由定位（--content-x / --content-y）',
+    mainCss.includes('var(--content-x') && mainCss.includes('var(--content-y'));
+  check('支持逐屏字号倍率（--title-scale）', mainCss.includes('var(--title-scale'));
+  check('CSS 有逐屏 Ken Burns 开关规则', /\.gallery-slide\.no-kenburns\s+\.slide-bg\s*\{\s*animation:\s*none/.test(mainCss));
+
+  // 后台是否真的能改这些（源码契约，未登录时也能验证）
+  const adminJs = readSrc('frontend/js/admin.js');
+  check('后台「画廊管理」提供标题特效选项', /key:\s*'effect'/.test(adminJs) && /霓虹发光|描边空心/.test(adminJs));
+  check('后台提供对齐 / 垂直位置选项', /key:\s*'align'/.test(adminJs) && /key:\s*'vertical'/.test(adminJs));
+  check('后台提供位置微调与字号倍率', /key:\s*'offsetX'/.test(adminJs) && /key:\s*'offsetY'/.test(adminJs) && /key:\s*'titleScale'/.test(adminJs));
+  check('后台提供逐屏遮罩与 Ken Burns 开关', /key:\s*'scrim'/.test(adminJs) && /key:\s*'kenBurns'/.test(adminJs));
+  check('后端 schema 接受这些字段', /TITLE_EFFECTS/.test(readSrc('server/middleware/validate.js'))
+    && /offsetX:\s*z\.number/.test(readSrc('server/middleware/validate.js')));
+  check('关闭 Ken Burns 的屏确实带 no-kenburns 类',
+    qa('.gallery-slide').filter((e2) => e2.classList.contains('no-kenburns')).length >= 1,
+    `实际 ${qa('.gallery-slide').filter((e2) => e2.classList.contains('no-kenburns')).length} 屏`);
+  check('镜头感：不是所有屏都用同一种排版', new Set(qa('.gallery-slide').map((e2) => `${e2.dataset.effect}|${e2.dataset.align}|${e2.dataset.vertical}`)).size >= 8,
+    `实际 ${new Set(qa('.gallery-slide').map((e2) => `${e2.dataset.effect}|${e2.dataset.align}|${e2.dataset.vertical}`)).size} 种组合`);
   check('月亮元素存在且可见', q('#moon')?.classList.contains('is-visible'));
   check('最后一屏有「进入网站」按钮', qa('.gallery-slide')[10]?.textContent.includes('进入网站'));
 

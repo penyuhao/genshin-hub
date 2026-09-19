@@ -432,6 +432,8 @@ p { margin: 0; }
   width: min(var(--container), 100%);
   margin: 0 auto;
   padding: calc(var(--topbar-h) + 24px) clamp(20px, 5vw, 64px) clamp(72px, 12vh, 132px);
+  /* 自由定位：后台可逐屏微调文字位置（% 为相对尺寸） */
+  transform: translate3d(var(--content-x, 0%), var(--content-y, 0%), 0);
 }
 
 /* 文字底衬：在文字块后面铺一层柔和的暗色光晕，无论背景多花都保证可读 */
@@ -452,7 +454,9 @@ p { margin: 0; }
 }
 
 .slide-title {
-  font-size: clamp(46px, 11vw, 132px);
+  position: relative;
+  /* 字号倍率可在后台逐屏调整 */
+  font-size: calc(clamp(46px, 11vw, 132px) * var(--title-scale, 1));
   line-height: 1.02;
   letter-spacing: 0.06em;
   color: var(--gold);
@@ -503,6 +507,123 @@ p { margin: 0; }
 .slide-title.font-system {
   letter-spacing: 0.1em;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.9);
+}
+
+/* ============================================================
+   逐屏外观：标题特效 / 对齐 / 垂直位置 / Ken Burns
+   全部可在后台「画廊管理 → 每一屏」里自由搭配
+   ============================================================ */
+
+/* 垂直位置 */
+.gallery-slide.v-top { align-items: start; }
+.gallery-slide.v-bottom { align-items: end; }
+
+/* 水平对齐（遮罩方向跟着走，保证文字始终有暗底） */
+.gallery-slide.align-center .slide-content { text-align: center; }
+.gallery-slide.align-center .slide-desc { margin: 0 auto; }
+
+.gallery-slide.align-right .slide-content { text-align: right; }
+.gallery-slide.align-right .slide-desc { margin-left: auto; }
+
+.gallery-slide.align-center .slide-content::before {
+  inset: -10% -8%;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.82)) 0%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.55)) 48%,
+    rgb(5 8 18 / 0) 78%
+  );
+}
+
+.gallery-slide.align-center .slide-bg::after {
+  background: linear-gradient(
+    180deg,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.9)) 0%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.45)) 30%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.55)) 66%,
+    rgb(5 8 18 / var(--scrim, 0.9)) 100%
+  );
+}
+
+.gallery-slide.align-right .slide-content::before {
+  inset: -8% -8% -6% -10%;
+  background: radial-gradient(
+    ellipse at 78% 50%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.8)) 0%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.5)) 46%,
+    rgb(5 8 18 / 0) 76%
+  );
+}
+
+.gallery-slide.align-right .slide-bg::after {
+  background: linear-gradient(
+    -96deg,
+    rgb(5 8 18 / var(--scrim, 0.9)) 0%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.94)) 26%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.6)) 52%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.28)) 76%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.5)) 100%
+  );
+}
+
+/* 关闭缓慢缩放 */
+.gallery-slide.no-kenburns .slide-bg { animation: none; }
+
+/* ---- 特效 1：光幕（默认，基础金色 + 光幕扫过 + 暖色微光）---- */
+.gallery-slide.effect-shine .slide-title {
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.75),
+    0 8px 44px rgba(0, 0, 0, 0.6),
+    0 0 34px rgba(232, 200, 119, 0.28);
+}
+
+/* ---- 特效 2：渐变填充 ---- */
+.gallery-slide.effect-gradient .slide-title {
+  background: linear-gradient(100deg, var(--gold) 8%, #fffdf5 38%, var(--cyan) 62%, var(--gold) 92%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  animation: gradientFlow 9s ease-in-out infinite;
+  filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.75));
+}
+
+/* ---- 特效 3：霓虹发光 ---- */
+.gallery-slide.effect-neon .slide-title {
+  text-shadow:
+    0 0 8px currentColor,
+    0 0 22px currentColor,
+    0 0 46px rgba(232, 200, 119, 0.55),
+    0 6px 30px rgba(0, 0, 0, 0.8);
+  animation: neonPulse 4s ease-in-out infinite;
+}
+
+/* ---- 特效 4：描边空心 ---- */
+.gallery-slide.effect-outline .slide-title {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 2px currentColor;
+  text-shadow: none;
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.85));
+}
+
+/* ---- 特效 5：双层错位（印刷感）---- */
+.gallery-slide.effect-offset .slide-title::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  color: var(--cyan);
+  opacity: 0.42;
+  transform: translate3d(0.055em, 0.045em, 0);
+  pointer-events: none;
+}
+
+/* ---- 特效 6：纯色（最干净）---- */
+.gallery-slide.effect-plain .slide-title {
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8);
 }
 
 .slide-subtitle {
