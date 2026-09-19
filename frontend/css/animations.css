@@ -43,8 +43,8 @@
 }
 
 @keyframes charRise {
-  from { opacity: 0; transform: translate3d(0, 0.5em, 0); filter: blur(6px); }
-  to { opacity: 0.99; transform: translate3d(0, 0, 0); filter: blur(0); }
+  from { opacity: 0; transform: translate3d(0, 0.5em, 0); }
+  to { opacity: 0.99; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes metalShine {

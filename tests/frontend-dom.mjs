@@ -149,6 +149,16 @@ async function main() {
   const q = (selector) => window.document.querySelector(selector);
   const qa = (selector) => Array.from(window.document.querySelectorAll(selector));
 
+  // 样式与源码（多处断言要用，统一在这里读一次）
+  const fsMod = await import('node:fs');
+  const readSrc = (rel) => fsMod.readFileSync(path.join(ROOT, rel), 'utf-8');
+  const mainCss = readSrc('frontend/css/main.css');
+  const responsiveCss = readSrc('frontend/css/responsive.css');
+  const animationsCss = readSrc('frontend/css/animations.css');
+  const galleryJs = readSrc('frontend/js/gallery.js');
+  const mainJs = readSrc('frontend/js/main.js');
+
+
   console.log('[阶段3] SPA 骨架与路由');
   check('文档标题由配置渲染', /原神功能快捷站/.test(window.document.title), window.document.title);
   check('顶栏导航渲染出 4 项', qa('#nav .nav-link').length === 4, `实际 ${qa('#nav .nav-link').length}`);
@@ -181,13 +191,24 @@ async function main() {
     qa('.gallery-slide .slide-bg').map((el) => el.style.backgroundImage).filter((v) => v.includes('gallery')).join(' '));
   check('标题应用了架空文字字体类', qa('.gallery-slide .slide-title')[0]?.className.includes('font-'),
     qa('.gallery-slide .slide-title')[0]?.className);
+  const fontClasses = qa('.gallery-slide .slide-title').map((el2) =>
+    (el2.className.match(/font-[a-z-]+/) || [''])[0].replace(/-$/, '')
+  );
+  check('11 屏用到了多种字体（≥6 种）', new Set(fontClasses).size >= 6,
+    `实际 ${new Set(fontClasses).size} 种：${[...new Set(fontClasses)].join(',')}`);
+  check('相邻两屏字体不相同（滚一下就能看出差别）',
+    fontClasses.every((f, i) => i === 0 || f !== fontClasses[i - 1]),
+    fontClasses.join(' → '));
+  check('标题浮现动画不再用模糊（避免看着像"换字体"）',
+    !/charRise[\s\S]{0,200}blur/.test(animationsCss), '');
+  check('光幕在文字浮现之后才扫过（延迟 ≤0.9s）',
+    /\.gallery-slide\.is-active \.title-shine\s*\{[^}]*animation:[^;]*?(\d*\.?\d+)s\s+infinite/.test(mainCss)
+    && Number((mainCss.match(/\.gallery-slide\.is-active \.title-shine\s*\{[^}]*?(\d*\.?\d+)s\s+infinite/) || [])[1]) <= 0.9,
+    '');
   check('月亮元素存在且可见', q('#moon')?.classList.contains('is-visible'));
   check('最后一屏有「进入网站」按钮', qa('.gallery-slide')[10]?.textContent.includes('进入网站'));
 
   console.log('\n[阶段4+] 主界面为「滚动吸附：滚一下就切一屏」');
-  const fsMod = await import('node:fs');
-  const mainCss = fsMod.readFileSync(path.join(ROOT, 'frontend/css/main.css'), 'utf-8');
-  const responsiveCss = fsMod.readFileSync(path.join(ROOT, 'frontend/css/responsive.css'), 'utf-8');
 
   const slideRule = mainCss.slice(mainCss.indexOf('.gallery-slide {'), mainCss.indexOf('.slide-bg {'));
   const galleryRule = mainCss.slice(mainCss.indexOf('.gallery {'), mainCss.indexOf('.gallery-slide {'));
@@ -258,8 +279,7 @@ async function main() {
   window.scrollTo = originalScrollTo;
 
   // ---- 源码契约：刷新回顶部、末屏下滑交给内容区 ----
-  const galleryJs = fsMod.readFileSync(path.join(ROOT, 'frontend/js/gallery.js'), 'utf-8');
-  const mainJs = fsMod.readFileSync(path.join(ROOT, 'frontend/js/main.js'), 'utf-8');
+
   check('刷新后回到首屏（关闭浏览器滚动恢复）', /scrollRestoration\s*=\s*'manual'/.test(mainJs));
   check('末屏继续下滑交给下方内容区', /onExitDown/.test(mainJs) && /this\.onExitDown\?\.\(\)/.test(galleryJs));
   check('动画期间关闭 CSS 吸附避免互相打架', /is-animating/.test(galleryJs) && /\.gallery\.is-animating/.test(mainCss));

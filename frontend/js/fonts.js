@@ -90,14 +90,16 @@ export function getDiscoveredFonts() {
   return discovered.slice();
 }
 
-/** 配置里的字体名 → CSS 类名（.font-teyvat / .font-inazuma ...） */
+/** 配置里的字体名 → CSS 类名（.font-teyvat / .font-khaenriah-chasm ...） */
 export function fontClassOf(fontName) {
   const name = String(fontName ?? '').toLowerCase();
   if (!name || name.includes('system') || name.includes('noto') || name.includes('serif')) return 'font-system';
+  // 层岩巨渊变体要排在 khaenriah 前面判断，否则会被通用类吃掉
+  if (name.includes('chasm')) return 'font-khaenriah-chasm';
   if (name.includes('ainee')) return 'font-ainee';
   if (name.includes('teyvat')) return 'font-teyvat';
   if (name.includes('inazuma')) return 'font-inazuma';
-  if (name.includes('khaenri') || name.includes('chasm')) return 'font-khaenriah';
+  if (name.includes('khaenri')) return 'font-khaenriah';
   if (name.includes('sumeru')) return 'font-sumeru';
   if (name.includes('deshret')) return 'font-deshret';
   return 'font-teyvat';

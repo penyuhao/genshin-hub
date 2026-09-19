@@ -469,6 +469,42 @@ p { margin: 0; }
   animation: charRise 0.78s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* 每屏标题的排版质感不同 —— HoYo 字体没有汉字（中文一律回退衬线），
+   所以除了拉丁副标题换字形之外，中文标题靠字距/字重/描边/倾斜来体现"换了一种字" */
+.slide-title.font-inazuma {
+  font-style: italic;
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8), 0 0 28px rgba(201, 166, 255, 0.35);
+}
+
+.slide-title.font-khaenriah {
+  letter-spacing: 0.12em;
+  -webkit-text-stroke: 1px rgba(232, 200, 119, 0.5);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.85);
+}
+
+.slide-title.font-sumeru {
+  letter-spacing: 0.18em;
+  font-weight: 500;
+}
+
+.slide-title.font-deshret {
+  letter-spacing: 0.22em;
+  font-weight: 400;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85), 0 0 22px rgba(232, 200, 119, 0.25);
+}
+
+.slide-title.font-ainee {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-shadow: 0 3px 16px rgba(0, 0, 0, 0.9);
+}
+
+.slide-title.font-system {
+  letter-spacing: 0.1em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.9);
+}
+
 .slide-subtitle {
   font-size: clamp(14px, 2.4vw, 26px);
   color: var(--text);
@@ -492,19 +528,20 @@ p { margin: 0; }
 /* 金属光扫过（金色标题） */
 .slide-title { position: relative; }
 
+/* 金属光扫过：等字浮起来之后再扫（延迟与逐字动画的结束时间对齐） */
 .title-shine {
   position: absolute;
   inset: -6% -2%;
   pointer-events: none;
   opacity: 0;
-  background: linear-gradient(100deg, transparent 38%, rgba(255, 253, 245, 0.5) 50%, transparent 62%);
+  background: linear-gradient(100deg, transparent 36%, rgba(255, 253, 245, 0.62) 50%, transparent 64%);
   background-size: 250% 100%;
   mix-blend-mode: screen;
 }
 
 .gallery-slide.is-active .title-shine {
   opacity: 1;
-  animation: metalShine 6.5s ease-in-out 1.3s infinite;
+  animation: metalShine 6.5s ease-in-out 0.72s infinite;
 }
 
 .slide-title.is-shine {

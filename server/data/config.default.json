@@ -23,7 +23,7 @@
         "subtitle": "MONDSTADT",
         "desc": "风与自由的城邦 · 蒲公英与风车的故乡",
         "bgImage": "/images/hero8.svg",
-        "font": "Teyvat Black",
+        "font": "Font Ainee",
         "textColor": "#9ed8f0",
         "cta": "",
         "ctaView": "home"
@@ -73,7 +73,7 @@
         "subtitle": "NATLAN",
         "desc": "火山与战歌之地 · 龙与部落的炽热国度",
         "bgImage": "/images/hero6.svg",
-        "font": "Teyvat Black",
+        "font": "Deshret Inscription",
         "textColor": "#ff9a6b",
         "cta": "",
         "ctaView": "home"
@@ -83,7 +83,7 @@
         "subtitle": "SNEZHNAYA",
         "desc": "冰雪与钢铁之国 · 愚人众的故乡",
         "bgImage": "/images/hero7.svg",
-        "font": "Teyvat Black",
+        "font": "Khaenriah Sun Chasm",
         "textColor": "#cfe6ff",
         "cta": "",
         "ctaView": "home"
@@ -93,7 +93,7 @@
         "subtitle": "COLUMBINA",
         "desc": "愚人众第三席 · 少女 · 霜雪与空月的咏叹",
         "bgImage": "/images/gallery/colombina-1.webp",
-        "font": "Deshret Inscription",
+        "font": "Khaenriah Sun",
         "textColor": "#cfe0ff",
         "cta": "",
         "ctaView": "home"
@@ -103,7 +103,7 @@
         "subtitle": "NOD-KRAI",
         "desc": "极北自治区 · 空月之歌的回响",
         "bgImage": "/images/hero9.svg",
-        "font": "Teyvat Black",
+        "font": "Font Ainee",
         "textColor": "#a9c8ff",
         "cta": "",
         "ctaView": "home"

@@ -75,6 +75,8 @@
   --font-teyvat: 'Teyvat Black', 'Teyvat Neue', 'Font Ainee', var(--font-cjk-serif);
   --font-inazuma: 'Inazuma Brush', 'Inazuma Neue', var(--font-cjk-serif);
   --font-khaenriah: 'Khaenriah Sun', 'Khaenriah Sun Chasm', 'Khaenriah Neue', var(--font-cjk-serif);
+  /* 层岩巨渊变体：必须排在前面，否则会被 Khaenriah Sun 抢先生效 */
+  --font-khaenriah-chasm: 'Khaenriah Sun Chasm', 'Khaenriah Sun', var(--font-cjk-serif);
   --font-sumeru: 'Sumeru Scribe', 'Sumeru', var(--font-cjk-serif);
   --font-deshret: 'Deshret Inscription', 'Deshret', var(--font-cjk-serif);
   --font-ainee: 'Font Ainee', var(--font-teyvat);
@@ -90,6 +92,7 @@ body {
 .font-teyvat { font-family: var(--font-teyvat); }
 .font-inazuma { font-family: var(--font-inazuma); }
 .font-khaenriah { font-family: var(--font-khaenriah); }
+.font-khaenriah-chasm { font-family: var(--font-khaenriah-chasm); }
 .font-sumeru { font-family: var(--font-sumeru); }
 .font-deshret { font-family: var(--font-deshret); }
 .font-ainee { font-family: var(--font-ainee); }
