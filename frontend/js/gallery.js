@@ -15,13 +15,17 @@ import { fontClassOf } from './fonts.js';
 /** 判定"当前屏"的可见比例阈值 */
 const ACTIVE_RATIO = 0.45;
 
+/** 一屏切换的动画时长（毫秒）：太短显生硬、太长显拖沓 */
+const STEP_DURATION = 520;
+
 export class Gallery {
-  constructor({ container, dots, scrollHint, onCta, onSlideChange }) {
+  constructor({ container, dots, scrollHint, onCta, onSlideChange, onExitDown }) {
     this.container = container;
     this.dotsContainer = dots;
     this.scrollHint = scrollHint;
     this.onCta = onCta;
     this.onSlideChange = onSlideChange;
+    this.onExitDown = onExitDown;
 
     this.slides = [];
     this.slideEls = [];
@@ -32,11 +36,14 @@ export class Gallery {
     this.ratios = new Map();
     this.animatedIn = new Set();
     this.boundHandlers = [];
+    this.animating = false;
+    this.rafId = null;
   }
 
-  /** 依据配置渲染所有屏（纵向堆叠） */
+  /** 依据配置渲染所有屏（纵向堆叠，一次手势一屏） */
   render(slides = []) {
     this.slides = Array.isArray(slides) ? slides.filter(Boolean) : [];
+    this.stopAnimation();
     clear(this.container);
     clear(this.dotsContainer);
     this.slideEls = [];
@@ -44,6 +51,7 @@ export class Gallery {
     this.animatedIn.clear();
     this.ratios.clear();
     this.currentIndex = -1;
+    this.container.scrollTop = 0;
 
     if (!this.slides.length) {
       this.container.appendChild(
@@ -134,6 +142,8 @@ export class Gallery {
     });
 
     this.bindScrollHint();
+    this.bindWheel();
+    this.bindKeyboard();
     this.setupObserver();
     // 首屏先进入"已激活"状态，动画立刻播放
     this.activate(0, { animate: true });
@@ -157,7 +167,7 @@ export class Gallery {
         }
 
         // 选出可见比例最高的一屏作为当前屏
-        let best = this.currentIndex;
+        let best = -1;
         let bestRatio = ACTIVE_RATIO;
         for (const [index, ratio] of this.ratios) {
           if (ratio > bestRatio) {
@@ -165,7 +175,16 @@ export class Gallery {
             bestRatio = ratio;
           }
         }
-        if (best !== this.currentIndex && best >= 0) {
+
+        // 整体滚出视口（例如页面已滚到下方内容）→ 视为"没有当前屏"，月亮与提示一起隐藏
+        if (best < 0) {
+          if (this.currentIndex !== -1) {
+            this.currentIndex = -1;
+            this.slideEls.forEach((elm) => elm.classList.remove('is-active'));
+            this.dots.forEach((dot) => dot.classList.remove('is-active'));
+            this.onSlideChange?.(-1, this.slideEls.length);
+          }
+        } else if (best !== this.currentIndex) {
           this.activate(best, { animate: true });
         }
 
@@ -232,21 +251,143 @@ export class Gallery {
 
   bindScrollHint() {
     if (!this.scrollHint) return;
-    const handler = () => this.goTo(Math.min(this.currentIndex + 1, this.slideEls.length - 1));
+    const handler = () => this.step(1);
     this.scrollHint.addEventListener('click', handler);
     this.boundHandlers.push(() => this.scrollHint.removeEventListener('click', handler));
   }
 
-  /** 平滑滚动到指定屏（原生滚动，不劫持滚轮） */
+  /* ---------------- 滚轮 / 键盘：一次手势一屏 ---------------- */
+
+  /**
+   * 自己接管滚轮：立刻拦下，然后用一条连续的缓动动画走完整整一屏。
+   * 这样不会出现"原生吸附先动一点、手势结束再跳过去"的生硬感。
+   * 触摸设备不拦（交给 CSS 滚动吸附，手感更自然）。
+   */
+  bindWheel() {
+    const handler = (event) => {
+      if (!this.enabled) return;
+      if (event.ctrlKey || event.metaKey) return; // 缩放 / 快捷键不拦
+      const delta = event.deltaY;
+      if (Math.abs(delta) < 3) return;
+
+      event.preventDefault(); // 接管：不让浏览器先滚一点
+      if (this.animating) return; // 动画进行中忽略连续滚动
+      this.step(delta > 0 ? 1 : -1);
+    };
+    this.container.addEventListener('wheel', handler, { passive: false });
+    this.boundHandlers.push(() => this.container.removeEventListener('wheel', handler));
+  }
+
+  /** 键盘：↑↓ / PageUp PageDown / 空格，同样一屏一步 */
+  bindKeyboard() {
+    const handler = (event) => {
+      if (!this.enabled) return;
+      if (document.body.dataset.view !== 'home') return;
+      const tag = (event.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+      const down = ['ArrowDown', 'PageDown', ' '].includes(event.key) || event.key === 'Spacebar';
+      const up = ['ArrowUp', 'PageUp'].includes(event.key);
+      if (!down && !up) return;
+
+      event.preventDefault();
+      if (this.animating) return;
+      this.step(down ? 1 : -1);
+    };
+    document.addEventListener('keydown', handler);
+    this.boundHandlers.push(() => document.removeEventListener('keydown', handler));
+  }
+
+  /** 依据真实滚动位置推算当前屏（比依赖观察器更稳，观察器不可用时也能正确翻页） */
+  currentIndexFromScroll() {
+    const y = this.container.scrollTop;
+    let best = 0;
+    let bestDist = Infinity;
+    this.slideEls.forEach((elm, i) => {
+      const dist = Math.abs(elm.offsetTop - y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = i;
+      }
+    });
+    return best;
+  }
+
+  /** 走一步：+1 下一屏 / -1 上一屏；到边界就把滚动交给页面 */
+  step(dir) {
+    const last = this.slideEls.length - 1;
+    const current = this.currentIndexFromScroll();
+    const target = current + dir;
+
+    if (target < 0) return; // 已在首屏：向上不处理（页面本就在顶部）
+    if (target > last) {
+      // 末屏继续往下：整段交给下方内容区（一次手势到位，不是挪一点）
+      this.onExitDown?.();
+      return;
+    }
+    this.goTo(target);
+  }
+
+  /** 平滑滚动到指定屏（自己控制动画曲线，手感连续不顿挫） */
   goTo(index) {
     const target = this.slideEls[Math.max(0, Math.min(index, this.slideEls.length - 1))];
     if (!target) return;
-    if (typeof target.scrollIntoView === 'function') {
-      target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
-    } else {
-      // 极端降级：直接改滚动位置
-      window.scrollTo({ top: target.offsetTop, behavior: 'auto' });
+
+    const top = target.offsetTop;
+    if (prefersReducedMotion()) {
+      this.container.scrollTop = top;
+      return;
     }
+
+    // 动画期间临时关掉 CSS 吸附，避免浏览器吸附与动画互相打架
+    this.animating = true;
+    this.container.classList.add('is-animating');
+    this.animateScrollTop(this.container, top, STEP_DURATION, () => {
+      this.container.classList.remove('is-animating');
+      this.animating = false;
+    });
+  }
+
+  /** rAF 缓动动画（easeInOutCubic），保证一屏一步顺滑到底 */
+  animateScrollTop(el, to, duration, done) {
+    cancelAnimationFrame(this.rafId);
+
+    const from = el.scrollTop;
+    const delta = to - from;
+    if (Math.abs(delta) < 2) {
+      el.scrollTop = to;
+      done?.();
+      return;
+    }
+
+    // 用「首帧的 rAF 时间戳」作为基准：避免 performance.now() 与 rAF 时间轴不一致导致进度为负
+    let started = null;
+    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2);
+
+    const tick = (now) => {
+      const stamp = typeof now === 'number' ? now : performance.now();
+      if (started === null) started = stamp;
+
+      const p = Math.max(0, Math.min(1, (stamp - started) / duration));
+      el.scrollTop = from + delta * ease(p);
+
+      if (p < 1) {
+        this.rafId = requestAnimationFrame(tick);
+      } else {
+        el.scrollTop = to;
+        this.rafId = null;
+        done?.();
+      }
+    };
+    this.rafId = requestAnimationFrame(tick);
+  }
+
+  stopAnimation() {
+    cancelAnimationFrame(this.rafId);
+    this.rafId = null;
+    this.animating = false;
+    this.container?.classList.remove('is-animating');
   }
 
   next() {
@@ -267,6 +408,7 @@ export class Gallery {
   }
 
   destroy() {
+    this.stopAnimation();
     this.observer?.disconnect();
     this.observer = null;
     this.boundHandlers.forEach((fn) => {

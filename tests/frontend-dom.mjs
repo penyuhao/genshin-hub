@@ -204,42 +204,69 @@ async function main() {
   check('文字有底衬与阴影（保证可读性）', /\.slide-content::before/.test(mainCss) && /text-shadow/.test(mainCss));
   check('背景做了降噪处理（降饱和/降亮度）', /saturate\(0\.82\)/.test(mainCss));
 
-  // 滚动交互：圆点与提示都走原生滚动（scrollIntoView）
+  // ---- 行为验证：一次手势 = 一整屏（伪造型，让 jsdom 能观察滚动动画）----
+  const galleryEl = q('#gallery');
+  const SLIDE_H = 800;
+  qa('.gallery-slide').forEach((elm, i) => {
+    Object.defineProperty(elm, 'offsetTop', { configurable: true, get: () => i * SLIDE_H });
+  });
+
+  let fakeScrollTop = 0;
+  const scrollHistory = [];
+  Object.defineProperty(galleryEl, 'scrollTop', {
+    configurable: true,
+    get: () => fakeScrollTop,
+    set: (value) => {
+      fakeScrollTop = value;
+      scrollHistory.push(Math.round(value));
+    },
+  });
+
   const scrollCalls = [];
   const originalScrollTo = window.scrollTo;
-  const originalScrollIntoView = window.Element.prototype.scrollIntoView;
   window.scrollTo = (opts) => { scrollCalls.push({ type: 'window', ...opts }); };
-  window.Element.prototype.scrollIntoView = function scrollIntoView(opts) {
-    scrollCalls.push({ type: 'element', index: this.dataset?.index, ...opts });
-  };
 
-  const dots = qa('#galleryDots .gallery-dot');
-  dots[dots.length - 1].dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-  await sleep(120);
-  check('点击圆点平滑滚动到对应屏',
-    scrollCalls.some((c) => c.type === 'element' && c.index === '10' && c.behavior === 'smooth'),
-    JSON.stringify(scrollCalls[0]));
+  const wheelDown = new window.WheelEvent('wheel', { deltaY: 120, bubbles: true, cancelable: true });
+  const wheelUp = new window.WheelEvent('wheel', { deltaY: -120, bubbles: true, cancelable: true });
 
-  scrollCalls.length = 0;
-  q('#scrollHint').dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-  await sleep(120);
-  check('点击「向下浏览」提示滚动到下一屏', scrollCalls.some((c) => c.type === 'element'), JSON.stringify(scrollCalls[0]));
+  const notCancelled = galleryEl.dispatchEvent(wheelDown);
+  check('滚轮被接管（立即 preventDefault，不让浏览器先滚一点）', notCancelled === false, `dispatchEvent=${notCancelled}`);
+  await sleep(750);
+  check('滚一下 = 正好一屏', Math.round(fakeScrollTop) === SLIDE_H, `scrollTop=${Math.round(fakeScrollTop)}`);
+  check('切换过程是连续动画（多次中间帧）', scrollHistory.length > 3, `帧数=${scrollHistory.length}`);
 
+  galleryEl.dispatchEvent(wheelDown);
+  await sleep(750);
+  check('再滚一下 = 再一屏（不跳屏）', Math.round(fakeScrollTop) === SLIDE_H * 2, `scrollTop=${Math.round(fakeScrollTop)}`);
+
+  galleryEl.dispatchEvent(wheelUp);
+  await sleep(750);
+  check('向上滚 = 退回一屏', Math.round(fakeScrollTop) === SLIDE_H, `scrollTop=${Math.round(fakeScrollTop)}`);
+
+  // 圆点跳转
+  qa('#galleryDots .gallery-dot')[10].dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  await sleep(750);
+  check('点击圆点跳到第 11 屏', Math.round(fakeScrollTop) === SLIDE_H * 10, `scrollTop=${Math.round(fakeScrollTop)}`);
+
+  // 「返回画廊」按钮
   scrollCalls.length = 0;
   q('#homeStatus')?.querySelector('.mini-btn')
     ?.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-  await sleep(120);
-  check('「↑ 返回画廊」按钮回到顶部', scrollCalls.some((c) => c.type === 'window' && c.top === 0), JSON.stringify(scrollCalls[0]));
-
-  // 滚轮不再被劫持：布局里没有任何 wheel 监听会 preventDefault
-  const galleryJs = fsMod.readFileSync(path.join(ROOT, 'frontend/js/gallery.js'), 'utf-8');
-  check('画廊不再劫持滚轮事件', !/addEventListener\(\s*'wheel'/.test(galleryJs));
+  await sleep(750);
+  check('「↑ 返回画廊」回到第一屏', Math.round(fakeScrollTop) === 0, `scrollTop=${Math.round(fakeScrollTop)}`);
 
   window.scrollTo = originalScrollTo;
-  window.Element.prototype.scrollIntoView = originalScrollIntoView;
+
+  // ---- 源码契约：刷新回顶部、末屏下滑交给内容区 ----
+  const galleryJs = fsMod.readFileSync(path.join(ROOT, 'frontend/js/gallery.js'), 'utf-8');
+  const mainJs = fsMod.readFileSync(path.join(ROOT, 'frontend/js/main.js'), 'utf-8');
+  check('刷新后回到首屏（关闭浏览器滚动恢复）', /scrollRestoration\s*=\s*'manual'/.test(mainJs));
+  check('末屏继续下滑交给下方内容区', /onExitDown/.test(mainJs) && /this\.onExitDown\?\.\(\)/.test(galleryJs));
+  check('动画期间关闭 CSS 吸附避免互相打架', /is-animating/.test(galleryJs) && /\.gallery\.is-animating/.test(mainCss));
+  check('视口高度用 dvh（手机地址栏收起不漏背景）', /height:\s*100dvh/.test(mainCss));
 
   console.log('\n[阶段4++] 手机端布局契约');
-  check('手机端画廊一屏高', /@media \(max-width: 767px\)[\s\S]*?\.gallery\s*\{[^}]*height:\s*100(vh|svh)/.test(responsiveCss));
+  check('手机端画廊一屏高', /@media \(max-width: 767px\)[\s\S]*?\.gallery\s*\{[^}]*height:\s*100(dvh|svh|vh)/.test(responsiveCss));
   check('手机端每屏占满容器', /@media \(max-width: 767px\)[\s\S]*?\.gallery-slide\s*\{[^}]*min-height:\s*100%/.test(responsiveCss));
   check('手机端遮罩改为上下压暗（文字居中）', /@media \(max-width: 767px\)[\s\S]*?\.slide-bg::after/.test(responsiveCss));
   check('手机端隐藏右侧圆点导航', /@media \(max-width: 767px\)[\s\S]*?\.gallery-dots\s*\{\s*display:\s*none/.test(responsiveCss));

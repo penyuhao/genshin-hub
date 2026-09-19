@@ -59,6 +59,22 @@ function renderNav(config) {
 function renderHomeContent(config) {
   renderHomeStatus(config);
   renderHomeLinks(config);
+  bindContentWheelBack();
+}
+
+/** 在下方内容区向上滚 → 回到画廊（一次手势一步，不逐像素挪） */
+function bindContentWheelBack() {
+  const content = qs('#homeContent');
+  if (!content || content.dataset.wheelBound) return;
+  content.dataset.wheelBound = '1';
+
+  content.addEventListener('wheel', (event) => {
+    if (event.deltaY >= 0) return;              // 只处理向上滚
+    const top = content.getBoundingClientRect().top;
+    if (top > 8) return;                        // 还没滚到内容区顶部，交给原生滚动
+    event.preventDefault();
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  }, { passive: false });
 }
 
 /** 服务状态速览：首屏下方最实用的模块，也是画廊下滑的直接落点 */
@@ -193,10 +209,19 @@ function renderHomeLinks(config) {
 }
 
 /* ============================================================
-   滚动：回到画廊顶部
+   滚动：回到画廊第一屏 / 跳到下方内容
    ============================================================ */
 function scrollToGallery() {
-  window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  // scrollIntoView 会同时把画廊内部滚到首屏、并把页面带回顶部
+  if (state.gallery) state.gallery.goTo(0);
+  else window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+}
+
+function scrollToHomeContent() {
+  const target = qs('#homeContent');
+  if (!target) return;
+  const top = target.getBoundingClientRect().top + window.scrollY;
+  window.scrollTo({ top: Math.max(0, top), behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
 }
 
 /* ============================================================
@@ -453,14 +478,16 @@ function renderGallery(config) {
     dots,
     scrollHint: qs('#scrollHint'),
     onCta: (view) => navigate(view),
-    // 当前屏变化：月亮只在首屏出现
+    // 当前屏变化：月亮只在首屏出现（-1 = 画廊整体滚出视口）
     onSlideChange: (index) => {
       state.currentSlide = index;
       updateMoonVisibility();
     },
+    // 末屏继续下滑：整段跳到下方内容区
+    onExitDown: () => scrollToHomeContent(),
   });
 
-  // 纵向堆叠 + 原生滚动：不再劫持滚轮，也不再自动轮播
+  // 一屏一步（滚轮由 Gallery 自己接管做动画，触摸交给 CSS 吸附）
   state.gallery.render(config.hero?.slides || []);
 }
 
@@ -472,6 +499,15 @@ async function boot() {
   const bootScreen = qs('#bootScreen');
   const hideBoot = () => bootScreen?.classList.add('is-hidden');
   setTimeout(hideBoot, 4200);
+
+  // 刷新后始终从首屏开始：浏览器会自动恢复"内层滚动容器"的位置，
+  // 不关掉的话会出现"一刷新就停在最后一屏 / 页面停在底部"的错乱。
+  try {
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  } catch {
+    /* ignore */
+  }
+  window.scrollTo(0, 0);
 
   try {
     // 1) 字体（先注入 @font-face，减少首屏字体闪烁）

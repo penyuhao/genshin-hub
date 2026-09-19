@@ -74,7 +74,7 @@
   .nav-link::after { bottom: 14px; }
 
   /* 画廊：纵向堆叠 + 滚动吸附，手机上滑一下就是一屏 */
-  .gallery { height: 100vh; height: 100svh; }
+  .gallery { height: 100vh; height: 100svh; height: 100dvh; }
   .gallery-slide { min-height: 100%; }
 
   /* 手机文字居中 → 遮罩改成上下压暗，文字底衬居中 */

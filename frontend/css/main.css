@@ -357,18 +357,22 @@ p { margin: 0; }
 
 .gallery {
   position: relative;
+  /* dvh = 动态视口高度：手机地址栏收起/展开时都贴合屏幕，底部不会漏出页面背景 */
   height: 100vh;
   height: 100svh;
+  height: 100dvh;
   overflow-y: auto;
   overflow-x: hidden;
   scroll-snap-type: y mandatory;
-  scroll-behavior: smooth;
   overscroll-behavior-y: auto;   /* 到底后把滚动交给页面（一条下来） */
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;         /* 隐藏内层滚动条，避免出现两条滚动条 */
 }
 
 .gallery::-webkit-scrollbar { width: 0; height: 0; }
+
+/* 自己接管滚轮做动画时临时关掉 CSS 吸附，避免两套机制互相打架 */
+.gallery.is-animating { scroll-snap-type: none; }
 
 .gallery-slide {
   position: relative;
