@@ -477,3 +477,32 @@ DATA_DIR=/vol1/genshin-hub-data PORT=3001 npm start
 ```
 
 数据目录指向 NAS 共享文件夹即可持久化；开机自启用 systemd / PM2 / 计划任务。
+
+---
+
+## 十、局域网 / NAS 上用 http 访问时资源加载失败？
+
+现象（浏览器控制台）：
+
+```text
+/css/main.css:1  Failed to load resource: net::ERR_SSL_PROTOCOL_ERROR
+/js/main.js:1   Failed to load resource: net::ERR_SSL_PROTOCOL_ERROR
+Unsafe attempt to load URL https://192.168.x.x:8090/ from frame with URL http://192.168.x.x:8090/
+```
+
+**原因**：CSP 里的 `upgrade-insecure-requests` 会要求浏览器把**所有子资源**升级成 https。
+如果站点其实是纯 http（局域网 IP 直连容器最常见），css/js/图片就会被强行走 https → 全部失败。
+
+**v2.15.2 起**：这条指令与 HSTS 只在**真正提供 https**（配了 `SSL_CERT` / `SSL_KEY` / `SSL_PFX`）时才发送。
+
+- 纯 http 部署：什么都不用配，正常访问即可
+- 前面有反代终止 TLS、容器自身是 http：设 `FORCE_HTTPS_HEADERS=true` 让它照常发送
+- 想直接上 https：配 `SSL_CERT` + `SSL_KEY`（自签证书也可以），或用 `SSL_PFX` 指向 .pfx
+
+> 顺带：helmet 的 `Cross-Origin-Opener-Policy` / `Origin-Agent-Cluster` 那两条是**警告不是错误**，
+> 在 http 的非受信来源上浏览器不会启用这些隔离特性，不影响站点功能。
+
+### 容器里数据目录不可写（NAS / NFS）
+
+entrypoint 现在三级兜底：`chown` → 失败则 `chmod -R a+rwX` → 再失败就打印明确提示（建议改用**命名卷**）。
+另外构建时对 `/app` 做了 `chmod -R u+rwX,go+rX`，源文件权限再奇怪也能保证可读（避免 EACCES）。

@@ -111,7 +111,13 @@ const cspHeader = health.headers.get('content-security-policy') || '';
 check('CSP 含 default-src \'self\'', cspHeader.includes("default-src 'self'"));
 check('CSP 的图片/媒体允许 http:（自建 http 站点也能用外链图）',
   /img-src[^;]*http:/.test(cspHeader) && /media-src[^;]*http:/.test(cspHeader), cspHeader.slice(0, 140));
-check('X-Frame-Options = DENY', health.headers.get('x-frame-options') === 'DENY');
+// upgrade-insecure-requests 会把所有子资源升级成 https：站点是纯 http（局域网 IP 访问容器）时，
+// 它会直接让 css/js/图片全部 ERR_SSL_PROTOCOL_ERROR。所以这条指令只在**真正提供 https** 时才发。
+check('CSP 的 upgrade-insecure-requests 与协议一致（纯 http 部署不会把资源打挂）',
+  String(BASE).startsWith('https:')
+    ? cspHeader.includes('upgrade-insecure-requests')
+    : !cspHeader.includes('upgrade-insecure-requests'),
+  `BASE=${BASE} → ${/upgrade-insecure-requests/.test(cspHeader) ? '含' : '不含'}该指令`);check('X-Frame-Options = DENY', health.headers.get('x-frame-options') === 'DENY');
 check('X-Content-Type-Options = nosniff', health.headers.get('x-content-type-options') === 'nosniff');
 
 // 回归：站点换成 https（自签证书 / 反代域名）后，浏览器会带 https 的 Origin，

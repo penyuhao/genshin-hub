@@ -7,7 +7,7 @@
 ![license](https://img.shields.io/badge/license-MIT-e8c877)
 ![node](https://img.shields.io/badge/node-%3E%3D18-7fd8d8)
 ![frontend](https://img.shields.io/badge/frontend-vanilla%20ESM-e8c877)
-![tests](https://img.shields.io/badge/tests-34%20%2B%2053%20%2B%2022%20%2B%20210%20%2B%2036%20passing-4ade80)
+![tests](https://img.shields.io/badge/tests-34%20%2B%2057%20%2B%2022%20%2B%20210%20%2B%2037%20passing-4ade80)
 ![audit](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-4ade80)
 
 **亮点**

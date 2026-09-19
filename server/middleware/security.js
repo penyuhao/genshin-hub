@@ -5,6 +5,13 @@ const rateLimit = require('express-rate-limit');
 
 const isProd = process.env.NODE_ENV === 'production';
 
+// 是否**真的**在提供 HTTPS：配了证书就跑 https；反代终止 TLS 时可用 FORCE_HTTPS_HEADERS=true 显式声明。
+// 这一点很关键：CSP 的 upgrade-insecure-requests 会让浏览器把所有子资源请求升级成 https，
+// 若站点其实是纯 http（局域网 IP 直连容器很常见），css/js/图片会全部 ERR_SSL_PROTOCOL_ERROR。
+const tlsEnabled =
+  Boolean(process.env.SSL_CERT || process.env.SSL_KEY || process.env.SSL_PFX) ||
+  String(process.env.FORCE_HTTPS_HEADERS || '').toLowerCase() === 'true';
+
 // ---- CSP：default-src 'self'，第三方来源一律显式白名单 ----
 const helmetConfig = helmet({
   contentSecurityPolicy: {
@@ -20,11 +27,11 @@ const helmetConfig = helmet({
       frameAncestors: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
-      upgradeInsecureRequests: isProd ? [] : null,
+      upgradeInsecureRequests: tlsEnabled ? [] : null,
     },
   },
   // HSTS 仅在 HTTPS 生产环境启用（Let's Encrypt + Nginx 前置）
-  hsts: isProd ? { maxAge: 31536000, includeSubDomains: true, preload: false } : false,
+  hsts: isProd && tlsEnabled ? { maxAge: 31536000, includeSubDomains: true, preload: false } : false,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   // 方案验收标准要求 X-Frame-Options: DENY（与 CSP frame-ancestors 'none' 双重保险）
   frameguard: { action: 'deny' },
@@ -111,4 +118,4 @@ const loginLimiter = rateLimit({
   message: { error: '登录尝试过于频繁，请 15 分钟后再试' },
 });
 
-module.exports = { helmetConfig, corsConfig, apiLimiter, loginLimiter, API_MAX, LOGIN_MAX, bypassLoopback };
+module.exports = { helmetConfig, corsConfig, apiLimiter, loginLimiter, API_MAX, LOGIN_MAX, bypassLoopback, tlsEnabled };
