@@ -1,0 +1,156 @@
+/* ============================================================
+   animations.css — 全部关键帧与动画层
+   性能约定：只动 transform / opacity，不触发重排
+   ============================================================ */
+
+/* ---------- 背景 ---------- */
+@keyframes auroraDrift {
+  from { transform: translate3d(-2%, 0, 0) scale(1.02); opacity: 0.35; }
+  to { transform: translate3d(2%, -1.5%, 0) scale(1.06); opacity: 0.6; }
+}
+
+@keyframes ringSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- 月亮 ---------- */
+@keyframes moonRotate {
+  from { background-position: 0% 50%; }
+  to { background-position: 200% 50%; }
+}
+
+@keyframes moonGlow {
+  from { transform: scale(1); opacity: 0.55; }
+  to { transform: scale(1.14); opacity: 1; }
+}
+
+/* ---------- 视图切换 ---------- */
+@keyframes viewIn {
+  from { opacity: 0; transform: translate3d(0, 22px, 0); }
+  to { opacity: 0.99; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes viewOut {
+  from { opacity: 0.99; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(0, -22px, 0); }
+}
+
+/* ---------- 画廊 ---------- */
+@keyframes kenBurns {
+  from { transform: scale(1.04) translate3d(0, 0, 0); }
+  to { transform: scale(1.14) translate3d(-2%, -1.4%, 0); }
+}
+
+@keyframes charRise {
+  from { opacity: 0; transform: translate3d(0, 0.5em, 0); filter: blur(6px); }
+  to { opacity: 0.99; transform: translate3d(0, 0, 0); filter: blur(0); }
+}
+
+@keyframes metalShine {
+  0% { background-position: 160% 50%; }
+  55% { background-position: -60% 50%; }
+  100% { background-position: -60% 50%; }
+}
+
+@keyframes hintBob {
+  0%, 100% { transform: translate(-50%, 0); opacity: 0.75; }
+  50% { transform: translate(-50%, 9px); opacity: 1; }
+}
+
+/* ---------- 状态 ---------- */
+@keyframes dotPulse {
+  0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55); }
+  70% { box-shadow: 0 0 0 12px rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+@keyframes dotPulseDown {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+@keyframes skeletonPulse {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes cardPop {
+  0% { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.97); }
+  100% { opacity: 0.99; transform: none; }
+}
+
+@keyframes musicPulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.18); opacity: 1; }
+}
+
+/* ---------- 交互反馈 ---------- */
+.ripple {
+  position: fixed;
+  z-index: 80;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1.5px solid rgba(232, 200, 119, 0.75);
+  animation: rippleOut 0.72s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes rippleOut {
+  from { opacity: 0.9; transform: scale(0.4); }
+  to { opacity: 0; transform: scale(7); }
+}
+
+@keyframes borderFlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Toast / 启动 ---------- */
+@keyframes toastIn {
+  from { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.96); }
+  to { opacity: 0.99; transform: none; }
+}
+
+@keyframes toastOut {
+  from { opacity: 0.99; transform: none; }
+  to { opacity: 0; transform: translate3d(0, 10px, 0); }
+}
+
+@keyframes bootFloat {
+  0%, 100% { transform: translate3d(0, -4px, 0) scale(1); }
+  50% { transform: translate3d(0, 6px, 0) scale(1.04); }
+}
+
+@keyframes bootSlide {
+  from { transform: translate3d(-120%, 0, 0); }
+  to { transform: translate3d(320%, 0, 0); }
+}
+
+/* ---------- 移动端导航入场 ---------- */
+@keyframes navItemIn {
+  from { opacity: 0; transform: translate3d(0, 22px, 0); }
+  to { opacity: 0.99; transform: none; }
+}
+
+/* ============================================================
+   无障碍：用户关闭动画时全部禁用（方案 6.3 / 阶段9）
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .view.is-active { opacity: 1; }
+  .moon.is-visible { opacity: 1; }
+  [data-reveal] { opacity: 1; transform: none; }
+  .slide-title .char { opacity: 1; transform: none; animation: none; }
+}

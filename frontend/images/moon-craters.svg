@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="400" height="200">
+  <defs>
+    <radialGradient id="crater" cx="0.42" cy="0.4" r="0.62">
+      <stop offset="0" stop-color="#8a6c30" stop-opacity="0.55"/>
+      <stop offset="0.7" stop-color="#a98c48" stop-opacity="0.35"/>
+      <stop offset="0.92" stop-color="#fff6dc" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#fff6dc" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="mare" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#9c8141" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#9c8141" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g>
+    <ellipse cx="90" cy="70" rx="52" ry="40" fill="url(#mare)"/>
+    <ellipse cx="280" cy="140" rx="70" ry="44" fill="url(#mare)"/>
+    <circle cx="60" cy="60" r="22" fill="url(#crater)"/>
+    <circle cx="150" cy="125" r="14" fill="url(#crater)"/>
+    <circle cx="238" cy="52" r="18" fill="url(#crater)"/>
+    <circle cx="330" cy="128" r="24" fill="url(#crater)"/>
+    <circle cx="390" cy="82" r="12" fill="url(#crater)"/>
+    <circle cx="-10" cy="82" r="12" fill="url(#crater)"/>
+    <circle cx="196" cy="172" r="9" fill="url(#crater)"/>
+    <circle cx="105" cy="165" r="7" fill="url(#crater)"/>
+    <circle cx="300" cy="30" r="8" fill="url(#crater)"/>
+  </g>
+</svg>

@@ -1,0 +1,35 @@
+# 依赖与构建产物
+node_modules/
+.npm-cache/
+
+# 环境变量（含密钥，绝不提交）
+server/.env
+.env
+.env.local
+
+# 运行时数据
+server/data/config.json
+server/data/backups/
+# 管理员凭据（bcrypt 哈希）与数据源密钥，绝不提交
+server/data/auth.json
+server/data/kuma.json
+
+# 用户上传内容
+frontend/images/uploads/*
+!frontend/images/uploads/.gitkeep
+frontend/fonts/uploads/*
+!frontend/fonts/uploads/.gitkeep
+
+# 临时文件
+.tmp-*
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# 本机专用（含 TLS 拦截 CA 等本地配置，绝不提交）
+.local/
+
+# 字体素材原始 Release 包（已按需提取到 frontend/fonts）
+HoYo-Glyphs-Release/
+__MACOSX/

@@ -1,0 +1,172 @@
+/* ============================================================
+   responsive.css — 手机端与平板适配（方案第九章 / 阶段8）
+   断点：桌面 ≥1024px｜平板 768~1023px｜手机 <768px
+   通用：触摸目标 ≥44×44px、正文字号 ≥14px、无横向滚动
+   ============================================================ */
+
+/* ---------- 平板：768 ~ 1023px ---------- */
+@media (max-width: 1023px) {
+  :root { --topbar-h: 62px; }
+
+  .moon { width: 148px; height: 148px; top: 8vh; right: 6vw; }
+
+  .monitor-grid { grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); }
+
+  .admin-layout { grid-template-columns: 196px minmax(0, 1fr); }
+}
+
+/* ---------- 手机：< 768px ---------- */
+@media (max-width: 767px) {
+  :root {
+    --topbar-h: 58px;
+    --radius: 12px;
+  }
+
+  body { font-size: 15px; }
+
+  /* 顶栏：Logo + 汉堡按钮 */
+  .topbar { padding: 0 16px; gap: 10px; }
+  .logo-text { font-size: 15px; letter-spacing: 0.08em; }
+  .logo-img { width: 30px; height: 30px; }
+
+  .menu-toggle { display: flex; }
+  .topbar-actions { margin-left: auto; }
+
+  /* 全屏抽屉导航 */
+  .nav {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    background:
+      radial-gradient(circle at 50% 30%, rgba(232, 200, 119, 0.10), transparent 60%),
+      rgba(8, 11, 22, 0.98);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .nav.is-open { display: flex; }
+
+  .nav-link {
+    width: min(320px, 80vw);
+    justify-content: center;
+    min-height: 54px;
+    font-size: 19px;
+    letter-spacing: 0.16em;
+    opacity: 0;
+    animation: navItemIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .nav.is-open .nav-link:nth-child(1) { animation-delay: 0.05s; }
+  .nav.is-open .nav-link:nth-child(2) { animation-delay: 0.12s; }
+  .nav.is-open .nav-link:nth-child(3) { animation-delay: 0.19s; }
+  .nav.is-open .nav-link:nth-child(4) { animation-delay: 0.26s; }
+  .nav.is-open .nav-link:nth-child(5) { animation-delay: 0.33s; }
+
+  .nav-link::after { bottom: 14px; }
+
+  /* 画廊：保持「一屏一屏切换」的机制，仅调整内容与月亮位置 */
+  .gallery-stage { height: 100vh; height: 100svh; }
+
+  .slide-content { padding: calc(var(--topbar-h) + 130px) 22px 76px; text-align: center; }
+  .slide-desc { margin: 0 auto; }
+  .slide-title { letter-spacing: 0.04em; }
+  .slide-subtitle { letter-spacing: 0.3em; text-indent: 0.3em; }
+
+  .moon {
+    position: fixed;
+    top: calc(var(--topbar-h) + 26px);
+    right: 50%;
+    width: 104px;
+    height: 104px;
+    transform: translate3d(50%, 18px, 0) scale(0.9);
+  }
+
+  .moon.is-visible { transform: translate3d(50%, 0, 0) scale(1); }
+
+  .gallery-dots { bottom: 18px; }
+  .scroll-hint { bottom: 40px; }
+
+  .home-content { padding: 40px 18px 68px; }
+
+  /* 卡片与网格：一律单列 */
+  .card-grid,
+  .monitor-grid,
+  .home-grid,
+  .status-metrics { grid-template-columns: 1fr; }
+
+  .download-card p { min-height: 0; }
+
+  /* 功能面板 */
+  .page-container { padding: calc(var(--topbar-h) + 26px) 18px 72px; }
+  .panel-toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar-actions { flex-direction: column; }
+  .toolbar-actions .btn { width: 100%; }
+  .summary-numbers { gap: 6px 16px; font-size: 13.5px; }
+
+  /* 关于：竖线装饰改为顶部横线 */
+  .about-section { padding-left: 0; padding-top: 16px; border-left: none; border-top: 2px solid rgba(232, 200, 119, 0.5); }
+
+  /* 管理后台：侧栏横向滚动 */
+  .admin-app { padding: calc(var(--topbar-h) + 18px) 14px 70px; }
+  .admin-layout { grid-template-columns: 1fr; gap: 14px; }
+
+  .admin-sidebar {
+    position: static;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-sidebar-title { display: none; }
+  .admin-nav-link { flex: 0 0 auto; min-height: 40px; padding: 0 14px; white-space: nowrap; }
+  .admin-main { padding: 18px 15px; }
+  .admin-login { padding: 26px 20px; margin-top: 4vh; }
+
+  .repeat-head { flex-wrap: wrap; }
+
+  /* 表单与按钮：点击目标足够大 */
+  .btn { min-height: 46px; }
+  .input, .textarea, .select { font-size: 16px; } /* 16px 以上避免 iOS 自动缩放 */
+
+  .toast-wrap { right: 12px; left: 12px; bottom: 12px; max-width: none; }
+
+  /* 移动端降低背景负担 */
+  .layer-aurora { opacity: 0.32; }
+  .ring-3 { display: none; }
+}
+
+/* ---------- 小屏手机：< 400px ---------- */
+@media (max-width: 399px) {
+  .slide-title { font-size: clamp(38px, 13vw, 54px); }
+  .page-title { letter-spacing: 0.06em; }
+  .summary-card { padding: 18px 16px; }
+  .monitor-card { padding: 16px; }
+}
+
+/* ---------- 横屏手机 ---------- */
+@media (max-width: 900px) and (orientation: landscape) {
+  .gallery { height: 100svh; }
+  .gallery-slide { min-height: 100svh; }
+  .slide-content { padding-top: calc(var(--topbar-h) + 40px); padding-bottom: 46px; }
+  .moon { display: none; }
+}
+
+/* ---------- 大屏优化 ---------- */
+@media (min-width: 1600px) {
+  :root { --container: 1320px; }
+  .moon { width: 210px; height: 210px; }
+}
+
+/* ---------- 打印（尽量可读） ---------- */
+@media print {
+  .layer, .mouse-glow, .moon, .topbar, .site-footer, .boot-screen, .toast-wrap { display: none !important; }
+  body { background: #fff; color: #111; }
+}

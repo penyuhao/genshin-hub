@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#050b1c"/>
+      <stop offset="0.4" stop-color="#0d1c3c"/>
+      <stop offset="0.72" stop-color="#1d3a63"/>
+      <stop offset="1" stop-color="#3d6b93"/>
+    </linearGradient>
+    <linearGradient id="aurora1" x1="0" y1="0" x2="1" y2="0.4">
+      <stop offset="0" stop-color="#7fffd4" stop-opacity="0"/>
+      <stop offset="0.35" stop-color="#7fffd4" stop-opacity="0.34"/>
+      <stop offset="0.65" stop-color="#9fc8ff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#9fc8ff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="aurora2" x1="0" y1="0" x2="1" y2="0.5">
+      <stop offset="0" stop-color="#c9a6ff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#c9a6ff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#c9a6ff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="moonGlow" cx="0.24" cy="0.2" r="0.3">
+      <stop offset="0" stop-color="#eaf4ff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#eaf4ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="forest" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16304f"/>
+      <stop offset="1" stop-color="#060e1c"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#moonGlow)"/>
+  <circle cx="460" cy="215" r="58" fill="#f2f8ff" opacity="0.92"/>
+  <circle cx="440" cy="200" r="52" fill="#e6f0ff" opacity="0.5"/>
+  <g>
+    <path d="M0 260 Q 500 150 980 250 T 1920 210 L1920 330 Q 1400 260 960 350 T 0 340 Z" fill="url(#aurora1)"/>
+    <path d="M0 400 Q 560 300 1080 390 T 1920 350 L1920 430 Q 1300 380 820 450 T 0 440 Z" fill="url(#aurora2)"/>
+  </g>
+  <g fill="#ffffff" opacity="0.55">
+    <circle cx="240" cy="90" r="1.2"/><circle cx="900" cy="120" r="1.4"/>
+    <circle cx="1420" cy="80" r="1.1"/><circle cx="1720" cy="160" r="1.3"/>
+    <circle cx="660" cy="200" r="1"/><circle cx="1180" cy="230" r="1.2"/>
+  </g>
+  <g fill="url(#forest)">
+    <path d="M0 760 L120 560 L240 760 Z"/><path d="M160 780 L290 540 L420 780 Z"/>
+    <path d="M360 790 L470 600 L580 790 Z"/><path d="M1460 770 L1580 570 L1700 770 Z"/>
+    <path d="M1620 790 L1750 550 L1880 790 Z"/><path d="M1340 780 L1440 620 L1540 780 Z"/>
+  </g>
+  <path d="M0 840 L200 700 L420 810 L640 690 L860 800 L1080 700 L1300 810 L1520 700 L1740 800 L1920 720 L1920 1080 L0 1080 Z" fill="#0a1830"/>
+  <path d="M0 960 Q 480 930 960 965 T 1920 950 L1920 1080 L0 1080 Z" fill="#050d1c"/>
+  <g stroke="#bfe0ff" stroke-opacity="0.16" stroke-width="1.6" fill="none">
+    <path d="M0 1000 Q 400 980 800 1005 T 1920 990"/>
+  </g>
+  <g fill="#cfe8ff" opacity="0.5">
+    <circle cx="520" cy="900" r="2"/><circle cx="1120" cy="940" r="1.7"/>
+    <circle cx="1620" cy="880" r="2.2"/><circle cx="820" cy="1010" r="1.5"/>
+  </g>
+</svg>

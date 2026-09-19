@@ -1,0 +1,29 @@
+# docker-compose.yml — 一键起站
+# 用法：
+#   1) 准备 server/.env（含管理员密码与 Kuma 配置）
+#   2) docker compose up -d --build
+#   3) 访问 http://localhost:3001
+services:
+  genshin-hub:
+    build: .
+    image: genshin-hub:latest
+    container_name: genshin-hub
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    env_file:
+      - server/.env
+    environment:
+      NODE_ENV: production
+      PORT: '3001'
+    volumes:
+      # 配置与备份持久化（不随镜像更新丢失）
+      - ./server/data:/app/server/data
+      # 后台上传的图片与字体持久化
+      - ./frontend/images/uploads:/app/frontend/images/uploads
+      - ./frontend/fonts/uploads:/app/frontend/fonts/uploads
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'

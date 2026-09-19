@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#03120c"/>
+      <stop offset="0.5" stop-color="#0c3b2a"/>
+      <stop offset="0.8" stop-color="#1d5c3c"/>
+      <stop offset="1" stop-color="#2e7a4a"/>
+    </linearGradient>
+    <radialGradient id="canopyLight" cx="0.68" cy="0.18" r="0.55">
+      <stop offset="0" stop-color="#b8f0c8" stop-opacity="0.20"/>
+      <stop offset="0.5" stop-color="#7fd8a0" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#7fd8a0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="trunk" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0a1f14"/>
+      <stop offset="0.5" stop-color="#123321"/>
+      <stop offset="1" stop-color="#081a10"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#canopyLight)"/>
+  <g stroke="#d8f0c8" stroke-opacity="0.10" stroke-width="8" fill="none">
+    <path d="M1250 -20 L1180 400"/>
+    <path d="M1350 -20 L1390 420"/>
+    <path d="M1300 -20 L1300 300"/>
+  </g>
+  <path d="M1240 1080 L1270 620 Q1280 520 1260 460 Q1310 420 1360 460 Q1345 540 1355 620 L1400 1080 Z" fill="url(#trunk)"/>
+  <g fill="#0a2417">
+    <ellipse cx="1300" cy="360" rx="380" ry="150"/>
+    <ellipse cx="1060" cy="440" rx="240" ry="90"/>
+    <ellipse cx="1580" cy="430" rx="260" ry="100"/>
+    <ellipse cx="1300" cy="240" rx="240" ry="90" fill="#0d2e1d"/>
+  </g>
+  <g fill="#7fd8a0" opacity="0.18">
+    <ellipse cx="1180" cy="330" rx="160" ry="50"/>
+    <ellipse cx="1480" cy="360" rx="140" ry="45"/>
+  </g>
+  <path d="M0 860 Q 420 800 840 865 T 1680 845 Q 1800 840 1920 870 L1920 1080 L0 1080 Z" fill="#061a10" opacity="0.9"/>
+  <path d="M0 970 Q 480 930 960 975 T 1920 960 L1920 1080 L0 1080 Z" fill="#03100a"/>
+  <g fill="#ffe9a0">
+    <circle cx="300" cy="700" r="3" opacity="0.8"/><circle cx="520" cy="820" r="2.2" opacity="0.6"/>
+    <circle cx="760" cy="640" r="2.6" opacity="0.7"/><circle cx="980" cy="780" r="2" opacity="0.55"/>
+    <circle cx="1620" cy="700" r="2.8" opacity="0.75"/><circle cx="1820" cy="620" r="2" opacity="0.5"/>
+    <circle cx="140" cy="880" r="2.4" opacity="0.6"/><circle cx="1100" cy="560" r="1.8" opacity="0.45"/>
+  </g>
+  <g fill="#04140c">
+    <path d="M0 1080 Q 60 980 20 900 Q 120 940 160 1080 Z"/>
+    <path d="M1920 1080 Q 1860 960 1900 880 Q 1800 930 1760 1080 Z"/>
+  </g>
+</svg>

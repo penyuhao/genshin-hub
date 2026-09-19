@@ -1,0 +1,17 @@
+{
+  "name": "genshin-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "原神功能快捷站 —— 全栈站点（静态前端 + Node 后端 + Kuma 中转 + 配置后台）",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "install:server": "npm --prefix server install",
+    "test:api": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/api-smoke.ps1",
+    "test:dom": "node tests/frontend-dom.mjs",
+    "test": "npm run test:api && npm run test:dom"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.0"
+  }
+}

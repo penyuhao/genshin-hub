@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="原神功能快捷站 —— 提瓦特旅行者手册：服务状态监控、常用工具入口与资讯速览">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>原神功能快捷站</title>
+  <link rel="icon" id="faviconLink" href="images/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+  <!-- L1 背景层：Three.js 星空 + 渐变 -->
+  <canvas id="starfield" class="layer layer-starfield" aria-hidden="true"></canvas>
+  <div class="layer layer-gradient" aria-hidden="true"></div>
+  <div class="layer layer-aurora" aria-hidden="true"></div>
+
+  <!-- L2 中景层：星环 -->
+  <div class="layer layer-rings" id="starRings" aria-hidden="true">
+    <span class="ring ring-1"></span>
+    <span class="ring ring-2"></span>
+    <span class="ring ring-3"></span>
+  </div>
+
+  <!-- L4 前景层：飘落元素粒子 -->
+  <canvas id="fxLayer" class="layer layer-fx" aria-hidden="true"></canvas>
+
+  <!-- L5 交互层：鼠标光晕 -->
+  <div class="mouse-glow" id="mouseGlow" aria-hidden="true"></div>
+
+  <!-- 月亮 -->
+  <div class="moon" id="moon" aria-hidden="true">
+    <span class="moon-texture"></span>
+    <span class="moon-halo"></span>
+  </div>
+
+  <!-- 顶栏 -->
+  <header class="topbar" id="topbar">
+    <a class="logo" href="#home" data-view="home">
+      <img class="logo-img" id="siteLogo" src="images/logo.svg" alt="" width="34" height="34">
+      <span class="logo-text" id="siteTitle">原神功能快捷站</span>
+    </a>
+
+    <nav class="nav" id="nav" aria-label="主导航"></nav>
+
+    <div class="topbar-actions">
+      <button class="music-toggle" id="musicToggle" type="button" aria-label="背景音乐" hidden>
+        <span class="music-icon">♪</span>
+      </button>
+      <button class="menu-toggle" id="menuToggle" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="nav">
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- 视图 1：首页 -->
+    <section id="view-home" class="view is-active" data-view="home">
+      <div class="gallery-stage">
+        <div class="gallery" id="gallery" tabindex="-1"></div>
+        <div class="gallery-dots" id="galleryDots" role="tablist" aria-label="画廊切换"></div>
+        <button class="scroll-hint" id="scrollHint" type="button" aria-label="查看服务状态">
+          <span class="scroll-hint-arrow">↓</span>
+          <span class="scroll-hint-text">服务状态</span>
+        </button>
+      </div>
+
+      <!-- 画廊下方内容（下滑 / 点击 ↓ 的直接落点） -->
+      <div class="home-content" id="homeContent">
+        <section class="home-block" id="homeStatus" aria-label="服务状态速览"></section>
+        <section class="home-block" id="homeLinks" aria-label="快捷入口"></section>
+      </div>
+    </section>
+
+    <!-- 视图 2：下载 -->
+    <section id="view-download" class="view" data-view="download">
+      <div class="page-container">
+        <header class="page-head">
+          <h2 class="page-title" data-reveal>下载</h2>
+          <p class="page-subtitle" data-reveal>官方入口与常用工具的快捷导航</p>
+        </header>
+        <div class="card-grid" id="downloadGrid"></div>
+      </div>
+    </section>
+
+    <!-- 视图 3：功能（Kuma 面板） -->
+    <section id="view-tools" class="view" data-view="tools">
+      <div class="page-container">
+        <header class="page-head">
+          <h2 class="page-title" data-reveal>功能</h2>
+          <p class="page-subtitle" data-reveal>服务状态总览与常用工具</p>
+        </header>
+
+        <div class="summary-card" id="summaryCard" data-reveal>
+          <div class="skeleton skeleton-line"></div>
+          <div class="skeleton skeleton-line short"></div>
+        </div>
+
+        <div class="panel-toolbar" id="panelToolbar" hidden>
+          <div class="conn-badge" id="connBadge" title="数据源状态">
+            <span class="conn-dot"></span>
+            <span class="conn-text">连接中…</span>
+          </div>
+          <div class="toolbar-actions">
+            <button class="btn btn-ghost" id="refreshMonitors" type="button">刷新</button>
+            <a class="btn btn-ghost" id="openKuma" href="#" target="_blank" rel="noopener noreferrer" hidden>打开状态页</a>
+          </div>
+        </div>
+
+        <div class="monitor-grid" id="monitorGrid"></div>
+        <div class="empty-state" id="toolsEmpty" hidden></div>
+      </div>
+    </section>
+
+    <!-- 视图 4：关于 -->
+    <section id="view-about" class="view" data-view="about">
+      <div class="page-container">
+        <header class="page-head">
+          <h2 class="page-title" data-reveal>关于</h2>
+          <p class="page-subtitle" data-reveal id="aboutSubtitle">提瓦特旅行者手册</p>
+        </header>
+        <div class="about-content" id="aboutContent"></div>
+      </div>
+    </section>
+
+    <!-- 隐藏视图：管理后台 -->
+    <section id="view-admin" class="view" data-view="admin">
+      <div class="admin-app" id="adminApp"></div>
+    </section>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="site-footer" id="siteFooter" hidden>
+    <p id="footerText"></p>
+  </footer>
+
+  <!-- 背景音乐（音源由配置提供） -->
+  <audio id="bgm" loop preload="none"></audio>
+
+  <!-- 提示 -->
+  <div class="toast-wrap" id="toastWrap" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- 启动遮罩 -->
+  <div class="boot-screen" id="bootScreen">
+    <img class="boot-logo" src="images/logo.svg" alt="" width="72" height="72">
+    <p class="boot-text">正在点亮提瓦特的星空…</p>
+    <span class="boot-bar"><i></i></span>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

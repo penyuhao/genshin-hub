@@ -1,0 +1,39 @@
+MIT License
+
+Copyright (c) 2026 原神功能快捷站 (Genshin Hub) contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+===============================================================================
+第三方素材与商标声明 / Third-party assets and trademarks
+===============================================================================
+
+1. 《原神》(Genshin Impact) 的名称、角色、剧情与美术素材版权归 米哈游 /
+   HoYoverse 所有。本仓库为非官方粉丝向技术演示项目，与米哈游无任何关联，
+   不提供任何游戏资源的破解、修改或再分发。
+
+2. frontend/fonts/ 下的 HoYo-Glyphs 架空文字字体由 SpeedyOrc-C 制作，
+   遵循其仓库声明的「非商业用途免费」条款：
+   https://github.com/SpeedyOrc-C/HoYo-Glyphs
+
+3. frontend/images/gallery/ 下的美术素材由本项目使用者自行提供，
+   MIT 许可不适用于这些文件；如需再分发请自行确认授权。
+
+4. frontend/images/hero*.svg、logo.svg、favicon.svg、moon-craters.svg
+   为本项目程序化生成的原创占位图，随代码一同以 MIT 许可发布。

@@ -1,0 +1,69 @@
+# nginx.conf.example — 反向代理 + HTTPS + SSE 免缓冲
+# 关键点：SSE（/api/status/events）必须关闭代理缓冲，否则前端收不到实时推送。
+
+upstream genshin_hub {
+    server 127.0.0.1:3001;
+    keepalive 16;
+}
+
+server {
+    listen 80;
+    server_name example.com;
+    # HTTP 全部跳转 HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1h;
+
+    # 安全响应头（应用层已由 Helmet 输出，这里做二次兜底）
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    client_max_body_size 12m;   # 与后台字体上传上限一致
+
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    # ---- SSE 实时推送：关闭缓冲与缓存 ----
+    location /api/status/events {
+        proxy_pass http://genshin_hub;
+        proxy_http_version 1.1;
+        proxy_set_header Connection '';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+        chunked_transfer_encoding off;
+    }
+
+    # ---- 其余请求 ----
+    location / {
+        proxy_pass http://genshin_hub;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ---- 静态资源长缓存（文件名带时间戳的上传文件）----
+    location ~* ^/(images|fonts)/uploads/ {
+        proxy_pass http://genshin_hub;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+}

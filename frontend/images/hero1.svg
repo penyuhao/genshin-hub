@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#04060f"/>
+      <stop offset="0.55" stop-color="#0b1020"/>
+      <stop offset="0.82" stop-color="#1a2444"/>
+      <stop offset="1" stop-color="#2a3456"/>
+    </linearGradient>
+    <radialGradient id="horizonGlow" cx="0.5" cy="1.05" r="0.75">
+      <stop offset="0" stop-color="#e8c877" stop-opacity="0.35"/>
+      <stop offset="0.5" stop-color="#c9a84c" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#c9a84c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="auroraGlow" cx="0.25" cy="0.18" r="0.5">
+      <stop offset="0" stop-color="#7fd8d8" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#7fd8d8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ridgeFar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#141c38"/>
+      <stop offset="1" stop-color="#0d1428"/>
+    </linearGradient>
+    <linearGradient id="ridgeMid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0e1530"/>
+      <stop offset="1" stop-color="#090e1f"/>
+    </linearGradient>
+    <linearGradient id="ridgeNear" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#080c1c"/>
+      <stop offset="1" stop-color="#04060f"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#auroraGlow)"/>
+  <rect width="1920" height="1080" fill="url(#horizonGlow)"/>
+  <g fill="#f0ece0">
+    <circle cx="180" cy="120" r="1.6" opacity="0.9"/><circle cx="420" cy="80" r="1.1" opacity="0.7"/>
+    <circle cx="640" cy="200" r="1.4" opacity="0.8"/><circle cx="900" cy="90" r="1.0" opacity="0.6"/>
+    <circle cx="1150" cy="160" r="1.7" opacity="0.9"/><circle cx="1400" cy="70" r="1.2" opacity="0.7"/>
+    <circle cx="1650" cy="190" r="1.5" opacity="0.85"/><circle cx="1820" cy="110" r="1.0" opacity="0.6"/>
+    <circle cx="300" cy="300" r="1.0" opacity="0.55"/><circle cx="760" cy="360" r="1.2" opacity="0.5"/>
+    <circle cx="1060" cy="300" r="0.9" opacity="0.45"/><circle cx="1520" cy="330" r="1.1" opacity="0.5"/>
+    <circle cx="80" cy="420" r="0.9" opacity="0.4"/><circle cx="1880" cy="380" r="1.0" opacity="0.45"/>
+  </g>
+  <path d="M0 760 Q 240 620 480 700 T 960 660 Q 1200 600 1440 690 T 1920 640 L1920 1080 L0 1080 Z" fill="url(#ridgeFar)" opacity="0.9"/>
+  <g fill="url(#ridgeMid)">
+    <path d="M0 850 Q 300 740 620 830 T 1280 800 Q 1600 750 1920 840 L1920 1080 L0 1080 Z"/>
+    <path d="M1500 830 L1560 640 L1590 620 L1620 645 L1660 830 Z" opacity="0.95"/>
+    <path d="M1560 640 L1590 560 L1620 645 Z" fill="#101832"/>
+  </g>
+  <path d="M0 950 Q 420 870 840 940 T 1680 920 Q 1800 910 1920 950 L1920 1080 L0 1080 Z" fill="url(#ridgeNear)"/>
+  <g stroke="#e8c877" stroke-opacity="0.14" stroke-width="1.5" fill="none">
+    <path d="M0 700 Q 480 660 960 700 T 1920 680"/>
+    <path d="M0 730 Q 480 695 960 735 T 1920 715"/>
+  </g>
+</svg>

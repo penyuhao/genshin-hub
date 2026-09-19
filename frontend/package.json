@@ -1,0 +1,6 @@
+{
+  "name": "genshin-hub-frontend",
+  "private": true,
+  "type": "module",
+  "description": "前端为纯静态 ES Module 应用，此文件仅用于声明模块类型（浏览器运行时不需要）"
+}

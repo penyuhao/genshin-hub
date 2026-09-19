@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="void" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#02040a"/>
+      <stop offset="0.5" stop-color="#07101f"/>
+      <stop offset="0.85" stop-color="#0d1e33"/>
+      <stop offset="1" stop-color="#16304a"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0.5" cy="0.62" r="0.36">
+      <stop offset="0" stop-color="#8fd6ff" stop-opacity="0.4"/>
+      <stop offset="0.45" stop-color="#4a7fd0" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#4a7fd0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pillar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b3550"/>
+      <stop offset="1" stop-color="#050b14"/>
+    </linearGradient>
+    <linearGradient id="rune" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a8dcff" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#a8dcff" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#void)"/>
+  <rect width="1920" height="1080" fill="url(#core)"/>
+  <g fill="#9fd8ff" opacity="0.35">
+    <circle cx="300" cy="140" r="1.1"/><circle cx="820" cy="90" r="1.3"/>
+    <circle cx="1320" cy="170" r="1"/><circle cx="1700" cy="120" r="1.2"/>
+    <circle cx="560" cy="280" r="0.9"/><circle cx="1120" cy="240" r="1.1"/>
+  </g>
+  <g stroke="#2e5f8c" stroke-opacity="0.5" fill="none" stroke-width="1.4">
+    <path d="M960 120 L960 960"/><path d="M760 200 L760 920"/><path d="M1160 200 L1160 920"/>
+    <path d="M600 300 L600 880"/><path d="M1320 300 L1320 880"/>
+  </g>
+  <g>
+    <path d="M300 940 L360 380 L400 340 L440 380 L500 940 Z" fill="url(#pillar)"/>
+    <path d="M1420 940 L1480 380 L1520 340 L1560 380 L1620 940 Z" fill="url(#pillar)"/>
+    <path d="M1180 960 L1230 520 L1265 490 L1300 520 L1350 960 Z" fill="url(#pillar)" opacity="0.9"/>
+    <path d="M570 960 L615 560 L645 535 L675 560 L720 960 Z" fill="url(#pillar)" opacity="0.85"/>
+  </g>
+  <g fill="url(#rune)">
+    <rect x="366" y="420" width="8" height="120" opacity="0.7"/>
+    <rect x="426" y="470" width="8" height="90" opacity="0.55"/>
+    <rect x="1486" y="430" width="8" height="140" opacity="0.7"/>
+    <rect x="1546" y="500" width="8" height="80" opacity="0.5"/>
+    <rect x="1240" y="560" width="7" height="110" opacity="0.6"/>
+    <rect x="1290" y="600" width="7" height="80" opacity="0.45"/>
+  </g>
+  <g>
+    <path d="M0 820 L240 700 L480 800 L720 690 L960 790 L1200 690 L1440 800 L1680 700 L1920 810 L1920 1080 L0 1080 Z" fill="#040a12"/>
+    <g fill="#0a1420">
+      <path d="M120 980 L180 880 L240 980 Z"/><path d="M560 990 L620 890 L680 990 Z"/>
+      <path d="M1360 985 L1420 885 L1480 985 Z"/><path d="M1720 995 L1780 895 L1840 995 Z"/>
+    </g>
+  </g>
+  <g stroke="#8fd6ff" stroke-opacity="0.18" stroke-width="1.2" fill="none">
+    <path d="M0 1010 Q 480 985 960 1015 T 1920 1000"/>
+  </g>
+  <g fill="#cfeaff" opacity="0.45">
+    <circle cx="700" cy="880" r="2"/><circle cx="1080" cy="930" r="1.6"/>
+    <circle cx="1560" cy="900" r="2.2"/>
+  </g>
+</svg>

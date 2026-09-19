@@ -1,0 +1,246 @@
+{
+  "site": {
+    "title": "原神功能快捷站",
+    "subtitle": "提瓦特旅行者手册",
+    "logo": "/images/logo.svg",
+    "favicon": "/images/favicon.svg",
+    "footer": "非官方粉丝站点 · 游戏素材版权归米哈游所有"
+  },
+  "hero": {
+    "slides": [
+      {
+        "title": "原神",
+        "subtitle": "TEYVAT",
+        "desc": "提瓦特旅行者手册 · 七国巡礼",
+        "bgImage": "/images/hero1.svg",
+        "font": "Teyvat Black",
+        "textColor": "#e8c877",
+        "cta": "",
+        "ctaView": "home"
+      },
+      {
+        "title": "蒙德",
+        "subtitle": "MONDSTADT",
+        "desc": "风与自由的城邦 · 蒲公英与风车的故乡",
+        "bgImage": "/images/hero8.svg",
+        "font": "Teyvat Black",
+        "textColor": "#9ed8f0",
+        "cta": "",
+        "ctaView": "home"
+      },
+      {
+        "title": "璃月",
+        "subtitle": "LIYUE",
+        "desc": "千岩牢固，重嶂不移 · 契约与商港之国",
+        "bgImage": "/images/hero2.svg",
+        "font": "system",
+        "textColor": "#ffd97d",
+        "cta": "",
+        "ctaView": "home"
+      },
+      {
+        "title": "稻妻",
+        "subtitle": "INAZUMA",
+        "desc": "常道恢弘，鸣神永恒 · 雷与永恒的群岛",
+        "bgImage": "/images/hero3.svg",
+        "font": "Inazuma Brush",
+        "textColor": "#c9a6ff",
+        "cta": "",
+        "ctaView": "home"
+      },
+      {
+        "title": "须弥",
+        "subtitle": "SUMERU",
+        "desc": "智慧之城，雨林之梦 · 草与知识的国度",
+        "bgImage": "/images/hero4.svg",
+        "font": "Sumeru Scribe",
+        "textColor": "#9be8b0",
+        "cta": "",
+        "ctaView": "home"
+      },
+      {
+        "title": "枫丹",
+        "subtitle": "FONTAINE",
+        "desc": "水与律法的国度 · 歌剧、审判与蒸汽机械",
+        "bgImage": "/images/hero5.svg",
+        "font": "Teyvat Black",
+        "textColor": "#7fd8d8",
+        "cta": "",
+        "ctaView": "home"
+      },
+      {
+        "title": "纳塔",
+        "subtitle": "NATLAN",
+        "desc": "火山与战歌之地 · 龙与部落的炽热国度",
+        "bgImage": "/images/hero6.svg",
+        "font": "Teyvat Black",
+        "textColor": "#ff9a6b",
+        "cta": "",
+        "ctaView": "home"
+      },
+      {
+        "title": "至冬",
+        "subtitle": "SNEZHNAYA",
+        "desc": "冰雪与钢铁之国 · 愚人众的故乡",
+        "bgImage": "/images/hero7.svg",
+        "font": "Teyvat Black",
+        "textColor": "#cfe6ff",
+        "cta": "",
+        "ctaView": "home"
+      },
+      {
+        "title": "哥伦比娅",
+        "subtitle": "COLUMBINA",
+        "desc": "愚人众第三席 · 少女 · 霜雪与空月的咏叹",
+        "bgImage": "/images/gallery/colombina-1.webp",
+        "font": "Deshret Inscription",
+        "textColor": "#cfe0ff",
+        "cta": "",
+        "ctaView": "home"
+      },
+      {
+        "title": "挪德卡莱",
+        "subtitle": "NOD-KRAI",
+        "desc": "极北自治区 · 空月之歌的回响",
+        "bgImage": "/images/hero9.svg",
+        "font": "Teyvat Black",
+        "textColor": "#a9c8ff",
+        "cta": "",
+        "ctaView": "home"
+      },
+      {
+        "title": "坎瑞亚",
+        "subtitle": "KHAENRI'AH",
+        "desc": "覆灭的无神之国 · 深藏于地底的远古文明",
+        "bgImage": "/images/hero10.svg",
+        "font": "Khaenriah Sun",
+        "textColor": "#9fb8d0",
+        "cta": "进入网站",
+        "ctaView": "tools"
+      }
+    ],
+    "autoplay": 0
+  },
+  "theme": {
+    "primaryColor": "#e8c877",
+    "accentColor": "#7fd8d8",
+    "bgColor": "#0b1020",
+    "bgColor2": "#12172b",
+    "textColor": "#f0ece0",
+    "textMuted": "#9aa0b5",
+    "upColor": "#4ade80",
+    "downColor": "#ef4444",
+    "radius": 14,
+    "cardShadow": "0 12px 40px rgba(0, 0, 0, 0.45)"
+  },
+  "navigation": {
+    "items": [
+      { "label": "首页", "view": "home", "visible": true },
+      { "label": "下载", "view": "download", "visible": true },
+      { "label": "功能", "view": "tools", "visible": true },
+      { "label": "关于", "view": "about", "visible": true }
+    ]
+  },
+  "features": {
+    "enableBackgroundMusic": false,
+    "enableStarfield": true,
+    "enableStarRings": true,
+    "enableMoon": true,
+    "enableParticles": true,
+    "enableMouseTrail": true,
+    "enableKumaPanel": true,
+    "enableParallax": true
+  },
+  "music": {
+    "url": "",
+    "volume": 0.35,
+    "autoplay": false
+  },
+  "download": {
+    "cards": [
+      {
+        "icon": "📦",
+        "title": "游戏本体",
+        "desc": "PC / 移动端 / PlayStation 官方下载入口",
+        "url": "",
+        "tag": "官方"
+      },
+      {
+        "icon": "☁️",
+        "title": "云·原神",
+        "desc": "无需下载，浏览器直接开玩（官方云游戏）",
+        "url": "",
+        "tag": "官方"
+      },
+      {
+        "icon": "🗺️",
+        "title": "提瓦特互动地图",
+        "desc": "标记宝箱、神瞳与采集物，支持路线规划",
+        "url": "https://webstatic.mihoyo.com/ys/app/interactive-map/index.html",
+        "tag": "工具"
+      },
+      {
+        "icon": "📊",
+        "title": "角色面板数据",
+        "desc": "输入 UID 查询公开角色、圣遗物与深渊战绩",
+        "url": "https://enka.network/",
+        "tag": "工具"
+      }
+    ]
+  },
+  "about": {
+    "sections": [
+      {
+        "title": "站点简介",
+        "content": "原神功能快捷站是一个非官方的粉丝向工具站点，聚合了服务状态监控、常用工具入口与提瓦特七国巡礼。\n全站支持后台动态配置：标题、配色、导航、画廊、下载卡片与关于内容都可以在不改代码的情况下调整。"
+      },
+      {
+        "title": "技术说明",
+        "content": "前端：HTML5 + CSS3 + 原生 JS 单页应用，Canvas 与 Three.js 负责粒子星空，CSS 负责其余动画。\n后端：Node.js + Express，负责安全中转 Uptime Kuma 数据、托管静态资源与配置管理。\n安全：Helmet CSP、CORS 白名单、速率限制、zod 输入验证、JWT 管理员认证，前端永不接触任何密钥。"
+      },
+      {
+        "title": "字体说明",
+        "content": "标题字体采用 HoYo-Glyphs 原神架空文字（提瓦特文字 / 稻妻文字 / 须弥文字 / 坎瑞亚文字等）。\n这些字体只包含拉丁字母与符号，因此画廊副标题（MONDSTADT、FONTAINE…）会呈现架空文字效果，中文标题自动回退到系统衬线字体以保证可读性。"
+      },
+      {
+        "title": "免责声明",
+        "content": "本站为非官方站点，与米哈游 / HoYoverse 无任何关联。\n《原神》名称、角色、美术素材等版权归米哈游所有，本站仅用于学习与技术演示，不提供任何游戏资源的破解或修改。\nHoYo-Glyphs 架空文字字体由 SpeedyOrc-C 制作，非商业用途免费。"
+      },
+      {
+        "title": "联系方式",
+        "content": "问题反馈与功能建议请通过站点管理后台配置的联系方式提交。\n如果你也喜欢折腾，欢迎把本站当作一个可复用的「原神主题后台可视化」模板。"
+      }
+    ]
+  },
+  "links": {
+    "title": "快捷入口",
+    "subtitle": "常用工具与官方入口，点击新窗口打开",
+    "items": [
+      {
+        "title": "UID 角色面板查询",
+        "desc": "输入 UID 查看公开的角色面板、圣遗物与深境螺旋记录",
+        "url": "https://enka.network/"
+      },
+      {
+        "title": "提瓦特互动地图",
+        "desc": "宝箱、神瞳、采集物标记与路线规划（官方工具）",
+        "url": "https://webstatic.mihoyo.com/ys/app/interactive-map/index.html"
+      },
+      {
+        "title": "米游社原神频道",
+        "desc": "官方公告、社区讨论与同人创作",
+        "url": "https://www.miyoushe.com/ys/"
+      }
+    ]
+  },
+  "fonts": {
+    "custom": []
+  },
+  "__meta": {
+    "version": 2,
+    "createdAt": "2026-09-19T00:00:00.000Z",
+    "lastUpdated": null,
+    "lastUpdatedBy": null,
+    "lastSection": null
+  }
+}

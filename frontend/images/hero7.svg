@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#060b1a"/>
+      <stop offset="0.42" stop-color="#12224a"/>
+      <stop offset="0.75" stop-color="#2c4a80"/>
+      <stop offset="1" stop-color="#6f9fd0"/>
+    </linearGradient>
+    <radialGradient id="frost" cx="0.5" cy="0.9" r="0.6">
+      <stop offset="0" stop-color="#dff0ff" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#dff0ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ice" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f5588"/>
+      <stop offset="1" stop-color="#0c1830"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#frost)"/>
+  <g fill="#ffffff" opacity="0.6">
+    <circle cx="300" cy="120" r="1.5"/><circle cx="760" cy="90" r="1.2"/>
+    <circle cx="1220" cy="140" r="1.4"/><circle cx="1680" cy="100" r="1.1"/>
+    <circle cx="540" cy="240" r="1"/><circle cx="1460" cy="270" r="1.3"/>
+  </g>
+  <g stroke="#cfe6ff" stroke-opacity="0.22" stroke-width="2" fill="none">
+    <path d="M0 300 Q 480 250 960 300 T 1920 280"/>
+    <path d="M0 380 Q 480 335 960 385 T 1920 360"/>
+  </g>
+  <g fill="url(#ice)">
+    <path d="M760 800 L820 470 Q850 380 880 340 Q910 385 935 470 L1000 800 Z"/>
+    <path d="M880 340 Q900 260 920 340 Q905 380 880 340 Z" fill="#4a76ab"/>
+    <path d="M1050 810 L1105 560 Q1130 500 1160 470 Q1185 505 1200 570 L1250 810 Z" opacity="0.92"/>
+    <path d="M600 820 L655 590 Q680 530 705 505 Q730 540 745 605 L800 820 Z" opacity="0.92"/>
+    <rect x="840" y="500" width="92" height="310" opacity="0.8"/>
+  </g>
+  <g fill="none" stroke="#a8cdf5" stroke-opacity="0.4" stroke-width="1.6">
+    <path d="M880 420 L920 420 M900 380 L900 470"/>
+    <path d="M1160 560 L1200 560 M1180 520 L1180 610"/>
+  </g>
+  <path d="M0 880 L180 770 L360 840 L540 720 L720 820 L920 750 L1120 860 L1340 740 L1540 840 L1740 760 L1920 870 L1920 1080 L0 1080 Z" fill="#14284a"/>
+  <path d="M0 960 Q 480 930 960 965 T 1920 950 L1920 1080 L0 1080 Z" fill="#0b1830"/>
+  <g stroke="#dff0ff" stroke-opacity="0.14" stroke-width="1.4" fill="none">
+    <path d="M0 1000 Q 400 980 800 1005 T 1920 990"/>
+    <path d="M0 1040 Q 480 1020 960 1045 T 1920 1030"/>
+  </g>
+</svg>

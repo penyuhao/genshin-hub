@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.npm-cache
+.git
+.gitignore
+server/.env
+server/data/config.json
+server/data/backups
+server/logs
+frontend/images/uploads/*
+frontend/fonts/uploads/*
+tests
+*.md
+.tmp-*

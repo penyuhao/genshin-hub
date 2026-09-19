@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a0a12"/>
+      <stop offset="0.4" stop-color="#3d1220"/>
+      <stop offset="0.72" stop-color="#8a2f1c"/>
+      <stop offset="1" stop-color="#d4632a"/>
+    </linearGradient>
+    <radialGradient id="lava" cx="0.42" cy="0.86" r="0.55">
+      <stop offset="0" stop-color="#ffb347" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#ff6b1a" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#ff6b1a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="volcano" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#40201c"/>
+      <stop offset="1" stop-color="#1a0d0c"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#lava)"/>
+  <g fill="#ffd9a8" opacity="0.45">
+    <circle cx="260" cy="150" r="1.3"/><circle cx="700" cy="100" r="1"/>
+    <circle cx="1180" cy="170" r="1.2"/><circle cx="1620" cy="120" r="1.1"/>
+  </g>
+  <path d="M640 940 L900 470 Q960 380 1020 470 L1290 940 Z" fill="url(#volcano)"/>
+  <path d="M900 470 Q960 380 1020 470 Q980 520 940 500 Q920 490 900 470 Z" fill="#ff7a2a" opacity="0.9"/>
+  <g stroke="#ffb347" stroke-opacity="0.7" stroke-width="3" fill="none" stroke-linecap="round">
+    <path d="M905 480 Q930 560 900 640 Q875 720 910 800"/>
+    <path d="M1010 486 Q985 570 1015 650 Q1040 730 1000 812"/>
+  </g>
+  <g fill="#1b0e0d">
+    <path d="M0 900 L120 700 L280 780 L420 640 L560 800 L700 720 L860 940 Z"/>
+    <path d="M1180 950 L1340 760 L1480 850 L1620 700 L1780 820 L1920 900 L1920 1080 L1180 1080 Z"/>
+  </g>
+  <path d="M0 990 Q 480 950 960 995 T 1920 980 L1920 1080 L0 1080 Z" fill="#120807"/>
+  <g stroke="#ff8a3d" stroke-opacity="0.5" stroke-width="2" fill="none">
+    <path d="M0 1020 Q 480 995 960 1025 T 1920 1010"/>
+  </g>
+  <g fill="#ffb347" opacity="0.55">
+    <circle cx="480" cy="860" r="3"/><circle cx="1420" cy="820" r="2.4"/>
+    <circle cx="340" cy="960" r="2.6"/><circle cx="1700" cy="940" r="2.2"/>
+    <circle cx="1120" cy="900" r="2.8"/>
+  </g>
+</svg>
