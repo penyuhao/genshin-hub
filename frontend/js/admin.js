@@ -1,6 +1,6 @@
 // js/admin.js — 管理后台：登录、区块表单编辑、图片/字体上传、备份还原
 // 安全：JWT 存于 localStorage，所有写操作走 Authorization: Bearer；配置文本一律 textContent 渲染
-import { el, clear, qsa, toast, fetchWithTimeout, formatRelativeTime, hasText } from './util.js';
+import { el, clear, qs, qsa, toast, fetchWithTimeout, formatRelativeTime, hasText, prefersReducedMotion } from './util.js';
 import { invalidateConfigCache, DEFAULT_CONFIG } from './config.js';
 import { getDiscoveredFonts } from './fonts.js';
 
@@ -32,6 +32,22 @@ const CATEGORY_OPTIONS = [
   { value: 'Deshret', label: '赤冠' },
   { value: 'Other', label: '其他' },
 ];
+
+/** 链接类字段：失焦时按与后端一致的宽容规则补全协议，避免"填了域名却保存失败" */
+const URL_FIELDS = new Set(['url', 'bgImage', 'bgVideo', 'logo', 'favicon']);
+
+function normalizeUrlInput(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw || raw === '#' || raw.startsWith('/')) return value;
+  if (/^(?:javascript|data|vbscript|file|blob|about|chrome|view-source):/i.test(raw)) return value;
+  if (/^http:\/\//i.test(raw)) return `https://${raw.slice('http://'.length)}`;
+  if (/^https:\/\//i.test(raw)) return raw;
+  if (raw.startsWith('//')) return `https:${raw}`;
+  if (/^[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+(?::\d{1,5})?(?:[/?#]\S*)?$/i.test(raw)) {
+    return `https://${raw}`;
+  }
+  return value;
+}
 
 /** 上传体积上限（来自服务端，可被部署环境用环境变量调整） */
 let uploadLimitsCache = null;
@@ -699,6 +715,15 @@ export class AdminPanel {
         class: 'input', type: 'text', value: value ?? '', dataset: { key: field.key },
         oninput: () => { formState[field.key] = input.value; },
       });
+      if (URL_FIELDS.has(field.key)) {
+        input.addEventListener('blur', () => {
+          const fixed = normalizeUrlInput(input.value);
+          if (fixed !== input.value) {
+            input.value = fixed;
+            formState[field.key] = fixed;
+          }
+        });
+      }
       wrap.appendChild(input);
     } else if (field.type === 'textarea') {
       const area = el('textarea', {
@@ -975,10 +1000,67 @@ export class AdminPanel {
     for (const input of qsa('[data-key]', formEl)) {
       const key = input.dataset.key;
       if (!key) continue;
+      // 数组条目里的输入框已经由各自的 handler 直接写回条目对象了；
+      // 这里若再按 key 写一遍，会把"最后一个条目"的值错误地提到顶层。
+      if (input.closest('.repeat-item')) continue;
       if (input.type === 'number') formState[key] = Number(input.value);
       else formState[key] = input.value;
     }
     return formState;
+  }
+
+  /**
+   * 保存失败时的显式提示：错误框常驻在表单顶部，并高亮出问题的字段。
+   * （以前只有一条 5 秒就消失的 toast，很容易以为"保存成功了"，
+   *   结果页面一直显示旧值 —— 比如下载卡片的"链接待补充"。）
+   */
+  /** 找到锚点所属的表单（保存按钮在表单外面，所以需要回退到区块表单） */
+  resolveForm(anchor) {
+    return anchor?.closest?.('form') || qs('form.form-grid', this.root) || null;
+  }
+
+  showFormError(anchor, error, details = []) {
+    const form = this.resolveForm(anchor);
+    if (!form) return;
+    this.clearFormError(form);
+
+    const list = el('ul', { class: 'form-error-list' });
+    let firstBad = null;
+
+    for (const item of details) {
+      const path = String(item?.path || '');
+      list.appendChild(el('li', { text: `${path || '配置'}：${item?.message || '校验未通过'}` }));
+
+      // cards.0.url → 第 0 个数组条目里的 url 输入框；title → 顶层同名输入框
+      const nested = path.match(/^([A-Za-z0-9_]+)\.(\d+)\.([A-Za-z0-9_]+)$/);
+      const target = nested
+        ? qsa('.repeat-item', form)[Number(nested[2])]?.querySelector(`[data-key="${nested[3]}"]`)
+        : form.querySelector(`[data-key="${path}"]`);
+      if (target) {
+        target.classList.add('has-error');
+        if (!firstBad) firstBad = target;
+      }
+    }
+
+    form.prepend(
+      el('div', { class: 'form-error', role: 'alert' },
+        el('strong', { text: `保存失败：${error || '配置校验未通过'}` }),
+        details.length ? list : null,
+        el('p', {
+          class: 'form-error-hint',
+          text: '链接可以直接填域名（例如 ys.mihoyo.com），会自动补上 https://；带空格或 javascript: 之类的地址会被拒绝。',
+        }))
+    );
+
+    firstBad?.scrollIntoView?.({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    firstBad?.focus?.();
+  }
+
+  clearFormError(anchor) {
+    const form = this.resolveForm(anchor);
+    if (!form?.querySelectorAll) return;
+    form.querySelectorAll('.form-error').forEach((node) => node.remove());
+    form.querySelectorAll('.has-error').forEach((node) => node.classList.remove('has-error'));
   }
 
   async saveSection(section, payload, button) {
@@ -1014,15 +1096,18 @@ export class AdminPanel {
         const detail = Array.isArray(data.details)
           ? data.details.map((d) => `${d.path}: ${d.message}`).join('；')
           : '';
+        // 常驻错误框（并高亮字段）+ 一次性 toast
+        this.showFormError(button, data.error, Array.isArray(data.details) ? data.details : []);
         toast(`${data.error || `保存失败（HTTP ${res.status}）`}${detail ? ` → ${detail}` : ''}`, 'error', 5200);
         return;
       }
 
+      this.clearFormError(button);
       invalidateConfigCache();
       this.config = data.data ? { ...(this.config || {}), [section.key]: data.data } : null;
       if (section.live === 'theme') this.config = null;
 
-      toast('保存成功 · 刷新页面后全站生效', 'success');
+      toast('保存成功 · 已即时生效', 'success');
       document.dispatchEvent(new CustomEvent('config-saved', { detail: { section: section.key } }));
       await this.selectSection(section.key);
     } catch (err) {

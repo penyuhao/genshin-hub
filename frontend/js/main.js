@@ -171,16 +171,17 @@ function bindContentWheelBack() {
   if (!content || content.dataset.wheelBound) return;
   content.dataset.wheelBound = '1';
 
+  let animating = false;
   content.addEventListener('wheel', (event) => {
     if (event.deltaY >= 0) return;      // 只处理向上滚（向下交给原生滚动）
     const y = window.scrollY;
     if (y <= 0) return;                 // 已经在顶部：交给画廊自己的翻屏逻辑
 
     event.preventDefault();
-    const stepPx = window.innerHeight * 0.92;
-    window.scrollTo({
-      top: Math.max(0, y - stepPx),
-      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    if (animating) return;              // 一次手势只走一步，不被连续事件反复打断
+    animating = true;
+    animateWindowScroll(Math.max(0, y - window.innerHeight * 0.92), 520, () => {
+      animating = false;
     });
   }, { passive: false });
 }
@@ -325,17 +326,63 @@ function renderHomeLinks(config) {
 /* ============================================================
    滚动：回到画廊第一屏 / 跳到下方内容
    ============================================================ */
+
+/**
+ * 窗口级缓动滚动：自己控制每一帧。
+ * 不用 window.scrollTo({behavior:'smooth'}) 是因为连续滚动事件会让浏览器
+ * 反复重启同一条动画，页面只会一点点往前挪（"滚不上去"的观感）。
+ * 另外 CSS 里的 scroll-behavior 也一并去掉了，避免和逐帧写入互相打架。
+ */
+let windowScrollRaf = null;
+
+function animateWindowScroll(to, duration = 520, done) {
+  cancelAnimationFrame(windowScrollRaf);
+
+  const from = window.scrollY || window.pageYOffset || 0;
+  const delta = to - from;
+  const finish = () => {
+    windowScrollRaf = null;
+    done?.();
+  };
+
+  if (Math.abs(delta) < 2 || prefersReducedMotion()) {
+    window.scrollTo({ top: to, behavior: 'instant' });
+    finish();
+    return;
+  }
+
+  let started = null;
+  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2);
+
+  const tick = (now) => {
+    const stamp = typeof now === 'number' ? now : performance.now();
+    if (started === null) started = stamp;
+
+    const p = Math.max(0, Math.min(1, (stamp - started) / duration));
+    window.scrollTo({ top: from + delta * ease(p), behavior: 'instant' });
+
+    if (p < 1) windowScrollRaf = requestAnimationFrame(tick);
+    else {
+      window.scrollTo({ top: to, behavior: 'instant' });
+      finish();
+    }
+  };
+
+  windowScrollRaf = requestAnimationFrame(tick);
+}
+
 function scrollToGallery() {
-  // scrollIntoView 会同时把画廊内部滚到首屏、并把页面带回顶部
+  // 回到画廊 = 画廊内部回第一屏 + 页面滚回画廊顶部。
+  // 两件事都要做：否则人还停在下方内容区，画廊却在背后偷偷重置了。
   if (state.gallery) state.gallery.goTo(0);
-  else window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  animateWindowScroll(0, 520);
 }
 
 function scrollToHomeContent() {
   const target = qs('#homeContent');
   if (!target) return;
   const top = target.getBoundingClientRect().top + window.scrollY;
-  window.scrollTo({ top: Math.max(0, top), behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  animateWindowScroll(Math.max(0, top), 560);
 }
 
 /* ============================================================

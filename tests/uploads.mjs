@@ -214,6 +214,45 @@ async function main() {
     saved.bgVideo === okMp4.json.url && saved.videoOpacity === 0.8 && saved.videoMuted === true,
     JSON.stringify({ bgVideo: saved.bgVideo, videoOpacity: saved.videoOpacity, videoMuted: saved.videoMuted }));
 
+  console.log('\n[5] 链接字段：只写域名也能保存（回归："我明明填了链接但显示链接待补充"）');
+  const cards = [
+    { title: '游戏本体', url: 'ys.mihoyo.com', tag: '官方' },
+    { title: '云原神', url: 'www.yuanshen.com/cloud', tag: '官方' },
+    { title: '工具站', url: 'http://enka.network/', tag: '工具' },
+    { title: '站内页', url: '/download', tag: '站内' },
+    { title: '待补充', url: '', tag: '' },
+  ];
+  const saveCards = await jsonReq('/api/config/download', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ cards }),
+  });
+  check('缺少协议的域名可以保存（不再整段被拒）', saveCards.status === 200,
+    `HTTP ${saveCards.status} ${JSON.stringify(saveCards.json).slice(0, 140)}`);
+
+  const savedCards = (await jsonReq('/api/config')).json?.download?.cards || [];
+  check('裸域名自动补成 https://', savedCards[0]?.url === 'https://ys.mihoyo.com', savedCards[0]?.url);
+  check('带路径的裸域名同样补全', savedCards[1]?.url === 'https://www.yuanshen.com/cloud', savedCards[1]?.url);
+  check('http:// 自动升级为 https://', savedCards[2]?.url === 'https://enka.network/', savedCards[2]?.url);
+  check('站内路径原样保留', savedCards[3]?.url === '/download', savedCards[3]?.url);
+  check('留空的卡片仍然允许（占位用）', savedCards[4]?.url === '', JSON.stringify(savedCards[4]?.url));
+
+  const badLink = await jsonReq('/api/config/download', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ cards: [{ title: '坏链接', url: 'javascript:alert(1)' }] }),
+  });
+  check('仍然拒绝 javascript: 链接', badLink.status === 400, `HTTP ${badLink.status}`);
+
+  const spaceLink = await jsonReq('/api/config/download', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ cards: [{ title: '坏链接', url: 'upl oad.com' }] }),
+  });
+  check('拒绝含空格的地址（并返回字段级错误，便于后台高亮）',
+    spaceLink.status === 400 && Array.isArray(spaceLink.json?.details) && spaceLink.json.details.length > 0,
+    `HTTP ${spaceLink.status} ${JSON.stringify(spaceLink.json?.details || null)}`);
+
   console.log('\n=== 测试结果 ===');
   console.log(`  通过: ${pass}`);
   console.log(`  失败: ${fail}`);

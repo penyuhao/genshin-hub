@@ -395,6 +395,12 @@ export class Gallery {
       const delta = event.deltaY;
       if (Math.abs(delta) < 3) return;
 
+      // 页面没停在画廊顶部时（比如正从下方内容区往回滚），滚轮必须先把**页面**滚回去，
+      // 不能在这里翻屏：否则画廊只露出一半、内部却自顾自翻页，
+      // 视口底部会一直留着一条下方内容区的空白背景（"往上滑就空出来一条背景"）。
+      // 这里直接 return、不 preventDefault，把滚动完整交还给页面。
+      if (Math.round(window.scrollY || window.pageYOffset || 0) > 2) return;
+
       event.preventDefault(); // 接管：不让浏览器先滚一点
       if (this.animating) return; // 动画进行中忽略连续滚动
       this.step(delta > 0 ? 1 : -1);

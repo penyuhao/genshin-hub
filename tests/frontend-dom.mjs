@@ -362,6 +362,24 @@ async function main() {
   await sleep(750);
   check('向上滚 = 退回一屏', Math.round(fakeScrollTop) === SLIDE_H, `scrollTop=${Math.round(fakeScrollTop)}`);
 
+  // 回归：从下方内容区往回滚时，页面还没回到画廊顶部，滚轮不能被画廊抢去翻屏 ——
+  // 否则画廊只露出一半、内部却自顾自翻页，视口底部会一直留着一条空白背景。
+  const fakePageOffset = { value: 0 };
+  Object.defineProperty(window, 'scrollY', { configurable: true, get: () => fakePageOffset.value });
+  fakePageOffset.value = 600;
+  const beforeScrolled = fakeScrollTop;
+  // 注意：必须用新的 WheelEvent —— 同一个事件对象被 preventDefault 过之后
+  // defaultPrevented 会一直保持 true，复用会得到假结果
+  const freshWheelUp = new window.WheelEvent('wheel', { deltaY: -120, bubbles: true, cancelable: true });
+  const cancelledWhileScrolled = !galleryEl.dispatchEvent(freshWheelUp);
+  check('页面还停在下方时，画廊不抢滚轮（交还给页面滚回去）', cancelledWhileScrolled === false,
+    `defaultPrevented=${cancelledWhileScrolled}`);
+  await sleep(150);
+  check('页面还停在下方时，画廊内部不翻屏', Math.round(fakeScrollTop) === beforeScrolled,
+    `scrollTop=${Math.round(fakeScrollTop)}（期望 ${beforeScrolled}）`);
+  fakePageOffset.value = 0;
+  await sleep(60);
+
   // 圆点跳转
   qa('#galleryDots .gallery-dot')[10].dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
   await sleep(750);
@@ -381,6 +399,13 @@ async function main() {
   check('刷新后回到首屏（关闭浏览器滚动恢复）', /scrollRestoration\s*=\s*'manual'/.test(mainJs));
   check('末屏继续下滑交给下方内容区', /onExitDown/.test(mainJs) && /this\.onExitDown\?\.\(\)/.test(galleryJs));
   check('动画期间关闭 CSS 吸附避免互相打架', /is-animating/.test(galleryJs) && /\.gallery\.is-animating/.test(mainCss));
+  check('窗口滚动用自己控制的逐帧缓动（不被 CSS 平滑滚动打断）',
+    /function animateWindowScroll/.test(mainJs) && /behavior: 'instant'/.test(mainJs)
+    && !/html \{ scroll-behavior: smooth/.test(mainCss),
+    '');
+  check('「返回画廊」同时把页面带回画廊顶部', /function scrollToGallery[\s\S]{0,320}animateWindowScroll\(0/.test(mainJs));
+  check('横屏手机也用 dvh（地址栏隐藏时底部不漏背景）',
+    /orientation: landscape[\s\S]{0,200}height: 100dvh/.test(responsiveCss), '');
   check('视口高度用 dvh（手机地址栏收起不漏背景）', /height:\s*100dvh/.test(mainCss));
 
   console.log('\n[阶段4++] 手机端布局契约');
@@ -649,6 +674,21 @@ async function main() {
     /fonts-changed/.test(mainJs) && /await initFonts\(\)/.test(mainJs) && /fonts-changed/.test(adminJs),
     '');
   check('保存配置的提示文案已改为即时生效', /已保存并即时生效/.test(mainJs), '');
+
+  // 回归：链接只写了域名（没有 https://）会被后端拒绝，而旧后台只有一条 5 秒的 toast，
+  // 用户以为保存成功了，页面却一直显示"链接待补充"。现在：后端宽容补全 + 后台常驻错误框。
+  console.log('\n[阶段9++] 链接字段的宽容处理与错误可见性');
+  const urlRulesSrc = readSrc('server/middleware/validate.js');
+  check('后台保存失败会显示常驻错误框（不再只有一闪而过的 toast）',
+    /showFormError/.test(adminJs) && /class: 'form-error'/.test(adminJs) && /form-error-hint/.test(adminJs));
+  check('错误框会高亮出问题的字段（含数组条目 cards.0.url）',
+    /has-error/.test(adminJs) && /\.repeat-item/.test(adminJs) && /querySelector\(`\[data-key=/.test(adminJs));
+  check('后台链接输入框失焦会自动补 https://', /normalizeUrlInput/.test(adminJs) && /URL_FIELDS/.test(adminJs));
+  check('后端对裸域名做归一化（与后台同一套规则）',
+    /function normalizeUrl/.test(urlRulesSrc) && /只写域名会自动补上 https:\/\//.test(urlRulesSrc));
+  check('collectForm 不再把数组条目的值写到顶层（避免串值）',
+    /input\.closest\('\.repeat-item'\)/.test(adminJs), '');
+  check('CSS 定义了错误框与红框高亮', /\.form-error\s*\{/.test(mainCss) && /\.has-error/.test(mainCss));
 
   check('无未捕获运行时异常', runtimeErrors.length === 0, runtimeErrors.slice(0, 3).join(' | '));
   const fatalConsole = consoleErrors.filter((m) => !/favicon|404/i.test(m));

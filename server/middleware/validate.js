@@ -16,22 +16,52 @@ const hexColor = z
   .string()
   .regex(/^#[0-9a-fA-F]{6}$/, '必须是 #RRGGBB 格式的颜色');
 
+/** 明确要拒绝的协议（其余都按"站内路径 / https 链接"处理） */
+const BAD_SCHEME = /^(?:javascript|data|vbscript|file|blob|about|chrome|jar|view-source):/i;
+
+/** 像域名的写法：example.com、www.a.com/path、a.b.co:8443/x（允许漏写协议） */
+const DOMAIN_LIKE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+(?::\d{1,5})?(?:[/?#][^\s\\]*)?$/i;
+
 /**
- * 站内路径或 https 链接：
+ * 链接归一化：把"人写得出来、但格式不完整"的地址补成规范形式。
+ * 这样后台里直接敲 `ys.mihoyo.com` 也能保存，而不是弹一句校验失败让人摸不着头脑。
+ *   http://x.com   → https://x.com   （CSP 只允许 https 资源，顺手升级）
+ *   //x.com/a      → https://x.com/a
+ *   ys.mihoyo.com  → https://ys.mihoyo.com
+ *   /images/a.png  → 原样（站内路径）
+ *   空 / #          → 原样（未配置 / 占位）
+ */
+function normalizeUrl(input) {
+  const raw = String(input ?? '').trim();
+  if (raw === '' || raw === '#') return raw;
+  if (/[\u0000-\u001f\s]/.test(raw)) return raw; // 含空白或控制字符：交给下面的 refine 拒绝
+  if (BAD_SCHEME.test(raw)) return raw;
+  if (/^https:\/\//i.test(raw)) return raw;
+  if (/^http:\/\//i.test(raw)) return `https://${raw.slice('http://'.length)}`;
+  if (raw.startsWith('//')) return `https:${raw}`;
+  if (raw.startsWith('/')) return raw;
+  if (DOMAIN_LIKE.test(raw)) return `https://${raw}`;
+  return raw;
+}
+
+/**
+ * 站内路径或 https 链接（先归一化再校验）：
  *  - /images/hero1.svg（同源，禁止 .. 穿越）
  *  - https://example.com/x.png
- *  - 空字符串（表示未配置）
+ *  - 只写域名会自动补 https://
+ *  - 空字符串（表示未配置）或 #（占位）
  */
 const safeUrl = z
   .string()
   .max(500)
+  .transform(normalizeUrl)
   .refine(
     (s) =>
       s === '' ||
       s === '#' ||
       (/^\/(?!\/)[^\s\\]*$/.test(s) && !s.includes('..')) ||
       /^https:\/\/[^\s]+$/i.test(s),
-    { message: '只允许站内绝对路径（/...）、# 占位或 https 链接' }
+    { message: '只允许站内路径（/...）、# 占位或链接；只写域名会自动补上 https://' }
   );
 
 const optionalUrl = safeUrl.optional();
