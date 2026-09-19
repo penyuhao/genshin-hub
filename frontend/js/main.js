@@ -399,7 +399,10 @@ function scrollToGallery() {
   // 回到画廊 = 画廊内部回第一屏 + 页面滚回画廊顶部。
   // 两件事都要做：否则人还停在下方内容区，画廊却在背后偷偷重置了。
   if (state.gallery) state.gallery.goTo(0);
-  animateWindowScroll(0, 520);
+  animateWindowScroll(0, 520, () => {
+    // 落回画廊后再同步一次当前屏，保证圆点高亮 / 月亮 / 光幕状态都对
+    if (state.gallery) state.gallery.activate(state.gallery.currentIndexFromScroll(), { animate: true });
+  });
 }
 
 function scrollToHomeContent() {
@@ -852,6 +855,48 @@ async function syncConfigFromServer(message = '已保存并即时生效') {
   }
 }
 
+/**
+ * 画廊与内容区的"边界吸附"。
+ *
+ * 页面滚动在这两者之间有一段"过渡带"（0 < scrollY < 内容区顶部）：
+ * 停在这里时，视口上半是**坎瑞亚（最后一屏）被切掉一半的空背景**，下半是内容区开头的空白 ——
+ * 看起来就像页面坏了。滚轮那条路径已经会直接对齐到画廊顶部，但触摸滑动、拖滚动条、
+ * 键盘 PageUp、触控板惯性都不经过滚轮事件，所以这里再加一道**兜底**：
+ * 滚动停下来之后，如果位置落在过渡带里，就平滑地对齐到最近的一头。
+ */
+function bindGalleryBoundaryClamp() {
+  const content = qs('#homeContent');
+  if (!content) return;
+
+  let settleTimer = null;
+
+  const clamp = () => {
+    const y = window.scrollY || window.pageYOffset || 0;
+    const contentTop = content.getBoundingClientRect().top + y;
+    const pageMax = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+
+    // 内容比一屏还短时没有可对齐的位置，别乱动
+    if (!contentTop || contentTop > pageMax + 2) return;
+    // 已经在两个"整齐位置"上（画廊顶部 / 内容区顶部）
+    if (y <= 2 || y >= contentTop - 2) return;
+
+    const toGallery = y < contentTop / 2;
+    animateWindowScroll(toGallery ? 0 : contentTop, 340, () => {
+      // 回到画廊时顺手把"当前屏"重新同步一次：
+      // 否则可能出现"画面是坎瑞亚、右侧圆点却没高亮、月亮也不在"的状态
+      if (toGallery && state.gallery) {
+        state.gallery.activate(state.gallery.currentIndexFromScroll(), { animate: true });
+      }
+    });
+  };
+
+  window.addEventListener('scroll', () => {
+    clearTimeout(settleTimer);
+    // 等滚动停下来再判断，避免和手势本身打架
+    settleTimer = setTimeout(clamp, 160);
+  }, { passive: true });
+}
+
 /* ============================================================
    启动
    ============================================================ */
@@ -910,6 +955,7 @@ async function boot() {
     // 6) 交互骨架
     setupMobileMenu();
     setupScrollProgress();
+    bindGalleryBoundaryClamp();
 
     // 7) 先注册视图监听，再初始化路由（保证首屏也能收到 view 回调）
     onViewChange((view) => {

@@ -500,6 +500,37 @@ async function main() {
   check('视图切换时同步标记 <html>（吸附样式按视图开关）',
     /document\.documentElement\.dataset\.view/.test(readSrc('frontend/js/router.js')));
 
+  // 兜底：触摸/滚动条/惯性滚动都不走滚轮事件，停下来后落在"过渡带"里必须自动对齐
+  const contentTopStub = 800;
+  const pageMaxStub = 2200;
+  Object.defineProperty(window.document.documentElement, 'scrollHeight', {
+    configurable: true, get: () => pageMaxStub + stubWindowHeight,
+  });
+  const realRect = contentEl.getBoundingClientRect.bind(contentEl);
+  contentEl.getBoundingClientRect = () => {
+    const rect = realRect();
+    return { ...rect, top: contentTopStub - fakePageOffset.value, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON() {} };
+  };
+
+  fakePageOffset.value = 300; // 过渡带里靠上 → 应该对齐到画廊顶部
+  scrollCalls.length = 0;
+  window.dispatchEvent(new window.Event('scroll'));
+  await sleep(900);
+  const clampTarget = scrollCalls.length ? scrollCalls[scrollCalls.length - 1].top : null;
+  check('滚动静止后落在"画廊半露"的过渡带里会自动对齐（触摸/滚动条同样生效）',
+    clampTarget !== null && Math.round(clampTarget) === 0, `最后一次 scrollTo.top=${clampTarget}`);
+
+  fakePageOffset.value = 700; // 过渡带里靠下 → 应该对齐到内容区顶部
+  scrollCalls.length = 0;
+  window.dispatchEvent(new window.Event('scroll'));
+  await sleep(900);
+  const clampTargetDown = scrollCalls.length ? scrollCalls[scrollCalls.length - 1].top : null;
+  check('靠下时对齐到内容区顶部（而不是硬拽回画廊）',
+    clampTargetDown !== null && Math.round(clampTargetDown) === contentTopStub, `最后一次 scrollTo.top=${clampTargetDown}`);
+
+  fakePageOffset.value = 0;
+  await sleep(200);
+
   // 圆点跳转
   qa('#galleryDots .gallery-dot')[10].dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
   await sleep(750);
