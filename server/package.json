@@ -1,6 +1,6 @@
-{
+﻿{
   "name": "genshin-hub-server",
-  "version": "1.0.0",
+  "version": "2.5.0",
   "description": "原神功能快捷站 - Node.js 后端（Kuma 中转 + 配置管理 + 静态托管）",
   "main": "index.js",
   "scripts": {

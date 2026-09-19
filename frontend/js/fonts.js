@@ -50,8 +50,15 @@ function injectFontFaces(fonts) {
     const file = sanitizeUrl(font?.file);
     if (!family || !file) continue;
     const format = FORMAT_MAP[String(font?.format || '').toLowerCase()] || 'truetype';
+
+    // 随仓库发布的 HoYo 字体自带 ascender 120% / descender -20%（行高 1.4），
+    // 会把基线与行盒抬高，和中文衬线混排时看起来像"字体错位"。
+    // 这里与 fonts.css 保持一致的度量覆盖；用户自己上传的字体不动。
+    const metrics =
+      font.source === 'builtin' ? 'ascent-override:88%;descent-override:12%;line-gap-override:0%;' : '';
+
     rules.push(
-      `@font-face{font-family:'${family}';src:url('${file}') format('${format}');font-display:swap;font-style:normal;font-weight:400 700;}`
+      `@font-face{font-family:'${family}';src:url('${file}') format('${format}');font-display:swap;font-style:normal;font-weight:400 700;${metrics}}`
     );
   }
 

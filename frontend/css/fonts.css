@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    fonts.css — 字体方案（HoYo-Glyphs 原神架空文字）
    1) 下面 7 套字体来自 HoYo-Glyphs 官方 Release（已放入 frontend/fonts/）
       静态声明保证首屏即刻加载，不必等 JS 请求 /api/fonts 返回
@@ -12,6 +12,11 @@
   font-family: 'Teyvat Black';
   src: url('../fonts/Teyvat_Black.woff2') format('woff2');
   font-display: swap;
+  /* HoYo 字体自带 ascender 120% / descender -20%（行高 1.4），会把基线和行盒抬高，
+     与中文衬线混排时看起来像'字体错位'。这里覆盖成常规度量。 */
+  ascent-override: 88%;
+  descent-override: 12%;
+  line-gap-override: 0%;
   font-style: normal;
   font-weight: 100 900;
 }
@@ -20,6 +25,11 @@
   font-family: 'Inazuma Brush';
   src: url('../fonts/Inazuma_Brush.woff2') format('woff2');
   font-display: swap;
+  /* HoYo 字体自带 ascender 120% / descender -20%（行高 1.4），会把基线和行盒抬高，
+     与中文衬线混排时看起来像'字体错位'。这里覆盖成常规度量。 */
+  ascent-override: 88%;
+  descent-override: 12%;
+  line-gap-override: 0%;
   font-style: normal;
   font-weight: 100 900;
 }
@@ -28,6 +38,11 @@
   font-family: 'Khaenriah Sun';
   src: url('../fonts/Khaenriah_Sun.woff2') format('woff2');
   font-display: swap;
+  /* HoYo 字体自带 ascender 120% / descender -20%（行高 1.4），会把基线和行盒抬高，
+     与中文衬线混排时看起来像'字体错位'。这里覆盖成常规度量。 */
+  ascent-override: 88%;
+  descent-override: 12%;
+  line-gap-override: 0%;
   font-style: normal;
   font-weight: 100 900;
 }
@@ -36,6 +51,11 @@
   font-family: 'Khaenriah Sun Chasm';
   src: url('../fonts/Khaenriah_Sun_Chasm.woff2') format('woff2');
   font-display: swap;
+  /* HoYo 字体自带 ascender 120% / descender -20%（行高 1.4），会把基线和行盒抬高，
+     与中文衬线混排时看起来像'字体错位'。这里覆盖成常规度量。 */
+  ascent-override: 88%;
+  descent-override: 12%;
+  line-gap-override: 0%;
   font-style: normal;
   font-weight: 100 900;
 }
@@ -44,6 +64,11 @@
   font-family: 'Sumeru Scribe';
   src: url('../fonts/Sumeru_Scribe.woff2') format('woff2');
   font-display: swap;
+  /* HoYo 字体自带 ascender 120% / descender -20%（行高 1.4），会把基线和行盒抬高，
+     与中文衬线混排时看起来像'字体错位'。这里覆盖成常规度量。 */
+  ascent-override: 88%;
+  descent-override: 12%;
+  line-gap-override: 0%;
   font-style: normal;
   font-weight: 100 900;
 }
@@ -52,6 +77,11 @@
   font-family: 'Deshret Inscription';
   src: url('../fonts/Deshret_Inscription.woff2') format('woff2');
   font-display: swap;
+  /* HoYo 字体自带 ascender 120% / descender -20%（行高 1.4），会把基线和行盒抬高，
+     与中文衬线混排时看起来像'字体错位'。这里覆盖成常规度量。 */
+  ascent-override: 88%;
+  descent-override: 12%;
+  line-gap-override: 0%;
   font-style: normal;
   font-weight: 100 900;
 }
@@ -60,6 +90,11 @@
   font-family: 'Font Ainee';
   src: url('../fonts/Font_Ainee.woff2') format('woff2');
   font-display: swap;
+  /* HoYo 字体自带 ascender 120% / descender -20%（行高 1.4），会把基线和行盒抬高，
+     与中文衬线混排时看起来像'字体错位'。这里覆盖成常规度量。 */
+  ascent-override: 88%;
+  descent-override: 12%;
+  line-gap-override: 0%;
   font-style: normal;
   font-weight: 100 900;
 }

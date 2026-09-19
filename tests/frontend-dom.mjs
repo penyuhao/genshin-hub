@@ -219,6 +219,30 @@ async function main() {
     '');
   check('特效动画关键帧齐备（渐变流动 / 霓虹呼吸）',
     /@keyframes\s+gradientFlow/.test(animationsCss) && /@keyframes\s+neonPulse/.test(animationsCss));
+  // 回归：渐变特效曾把 background-clip 放在父级，而每个字带 transform，
+  // 导致字形与渐变裁切错位（枫丹、蒙德两屏"字体错位"）。现在必须下放到 .char。
+  check('渐变特效不做父级文字裁切（避免字形错位）',
+    !/\.gallery-slide\.effect-gradient \.slide-title\s*\{[^}]*background-clip/.test(mainCss)
+    && /\.gallery-slide\.effect-gradient \.slide-title \.char\s*\{[^}]*background-clip:\s*text/.test(mainCss),
+    '父级裁切与子级 transform 冲突会导致字形错位');
+  check('渐变字的两个动画并列（上浮 + 流动不互相覆盖）',
+    /effect-gradient \.slide-title \.char\s*\{[^}]*animation:\s*[\s\S]{0,200}charRise[\s\S]{0,120}gradientFlow/.test(mainCss));
+
+  // 回归：HoYo 字体自带 ascender 120% / descender -20%（行高 1.4），
+  // 基线被抬高导致与中文衬线混排时"字体错位"。必须用度量覆盖拉回常规值。
+  const fontsCss = readSrc('frontend/css/fonts.css');
+  const faceCount = (fontsCss.match(/@font-face\s*\{/g) || []).length;
+  const overrideCount = (fontsCss.match(/ascent-override:\s*88%/g) || []).length;
+  check(`7 套 HoYo 字体都加了垂直度量覆盖（${overrideCount}/${faceCount}）`, overrideCount === faceCount && faceCount >= 7,
+    `@font-face ${faceCount} 条，覆盖 ${overrideCount} 条`);
+  check('度量覆盖含 ascent/descent/line-gap 三项',
+    /ascent-override/.test(fontsCss) && /descent-override/.test(fontsCss) && /line-gap-override/.test(fontsCss));
+  check('副标题行高收紧（避免间距忽大忽小）', /\.slide-subtitle\s*\{[^}]*line-height:\s*1\.35/.test(mainCss));
+
+  // 运行时注入的 @font-face 会覆盖静态声明，必须带上同样的度量覆盖
+  const dynamicFaces = window.document.getElementById('dynamic-font-faces')?.textContent || '';
+  check('运行时注入的字体也带度量覆盖（否则会覆盖掉修复）',
+    dynamicFaces.includes('ascent-override:88%'), dynamicFaces.slice(0, 120));
   check('支持自由定位（--content-x / --content-y）',
     mainCss.includes('var(--content-x') && mainCss.includes('var(--content-y'));
   check('支持逐屏字号倍率（--title-scale）', mainCss.includes('var(--title-scale'));

@@ -577,17 +577,30 @@ p { margin: 0; }
     0 0 34px rgba(232, 200, 119, 0.28);
 }
 
-/* ---- 特效 2：渐变填充 ---- */
+/* ---- 特效 2：渐变填充 ----
+   注意：不能让父级做 background-clip: text。
+   每个字是 inline-block 且带 charRise 的 transform，transform 会让父级的
+   文字裁切基准错位（表现就是"字形和渐变错开/字体错位"）。
+   所以渐变下放到每个字自己身上，父级只保留投影。 */
 .gallery-slide.effect-gradient .slide-title {
-  background: linear-gradient(100deg, var(--gold) 8%, #fffdf5 38%, var(--cyan) 62%, var(--gold) 92%);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  text-shadow: none;
+  filter: drop-shadow(0 4px 22px rgba(0, 0, 0, 0.75));
+}
+
+.gallery-slide.effect-gradient .slide-title .char {
+  background-image: linear-gradient(100deg, var(--gold) 0%, #fffdf5 38%, var(--cyan) 72%, var(--gold) 100%);
   background-size: 220% 100%;
+  background-repeat: no-repeat;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  text-shadow: none;
-  animation: gradientFlow 9s ease-in-out infinite;
-  filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.75));
+  /* 逐字上浮 + 渐变流动：两个动画并列，互不覆盖 */
+  animation:
+    charRise 0.78s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+    gradientFlow 9s ease-in-out infinite;
 }
 
 /* ---- 特效 3：霓虹发光 ---- */
@@ -628,6 +641,7 @@ p { margin: 0; }
 
 .slide-subtitle {
   font-size: clamp(14px, 2.4vw, 26px);
+  line-height: 1.35;   /* 收紧行盒，避免架空文字与中文标题间距忽大忽小 */
   color: var(--text);
   opacity: 0.92;
   margin-bottom: 14px;
@@ -663,16 +677,6 @@ p { margin: 0; }
 .gallery-slide.is-active .title-shine {
   opacity: 1;
   animation: metalShine 6.5s ease-in-out 0.72s infinite;
-}
-
-.slide-title.is-shine {
-  background: linear-gradient(100deg, var(--gold) 20%, #fffdf5 42%, var(--gold) 58%, #b8944a 82%);
-  background-size: 260% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  animation: metalShine 6.5s ease-in-out infinite;
 }
 
 /* 画廊控制点：桌面端右侧固定竖排，点击平滑跳转到对应屏
