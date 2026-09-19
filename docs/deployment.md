@@ -422,3 +422,58 @@ cp server/data/config.json ~/config-$(date +%F).json
 | 忘了管理员密码 | 删掉 `DATA_DIR/auth.json` 重启 → 回退到 `.env` 的 `ADMIN_PASSWORD`；两者都没有会重新生成并打印 |
 | 中文乱码 / 时间不对 | 容器时区：设 `TZ=Asia/Shanghai` |
 | 页面样式正常但没动画 | 系统开了"减少动态效果"，或后台「功能开关」里关掉了对应模块 |
+
+---
+
+## 九、拉不到镜像怎么办（国内 / NAS 常见）
+
+典型报错：
+
+```text
+unexpected status from HEAD request to https://<镜像站>/v2/library/node/manifests/22-alpine: 401 Unauthorized
+Get "https://registry-1.docker.io/v2/": net/http: request canceled ... (Client.Timeout exceeded)
+```
+
+**这不是 Dockerfile 或 node:22-alpine 的问题，而是镜像仓库连不上。** 401 也要分两种：
+
+| 情况 | 说明 |
+|---|---|
+| 401 **带** `WWW-Authenticate: Bearer realm=…` | 正常：客户端会去取 token 再拉取 |
+| 401 **不带**该头 | 镜像站配置有问题（飞牛 OS 自带的 `docker.fnnas.com` 就是这种），必然失败 |
+| 连接超时 | `registry-1.docker.io` 国内基本不可达，必须换源 |
+
+### 办法一：换镜像加速地址（推荐）
+
+飞牛 OS：**Docker → 设置 → 镜像加速 / Registry mirrors**，把自带的 `docker.fnnas.com` 换成实测可用的：
+
+```text
+https://docker.1panel.live
+https://docker.m.daocloud.io
+```
+
+### 办法二：只给这一个镜像换源（不动全局设置）
+
+```bash
+# 方式 A：构建参数直接指定基础镜像来源（本仓库已支持）
+docker compose build --build-arg NODE_IMAGE=docker.1panel.live/library/node:22-alpine
+docker compose up -d
+
+# 方式 B：先拉下来打本地标签，再构建
+docker pull docker.1panel.live/library/node:22-alpine
+docker tag  docker.1panel.live/library/node:22-alpine node:22-alpine
+docker compose up -d --build
+```
+
+依赖安装同样可以换源：`docker compose build --build-arg NPM_REGISTRY=https://registry.npmmirror.com/`。
+
+### 办法三：不用 Docker（NAS 上很省事）
+
+只要有 Node ≥ 18：
+
+```bash
+git clone https://github.com/penyuhao/genshin-hub.git
+cd genshin-hub && npm install
+DATA_DIR=/vol1/genshin-hub-data PORT=3001 npm start
+```
+
+数据目录指向 NAS 共享文件夹即可持久化；开机自启用 systemd / PM2 / 计划任务。

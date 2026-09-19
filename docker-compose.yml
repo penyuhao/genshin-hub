@@ -8,7 +8,11 @@
 # 想用 server/.env 里的配置？取消下方 volumes 中那一行注释即可。
 services:
   genshin-hub:
-    build: .
+    build:
+      context: .
+      args:
+        # 国内 / NAS 拉不到 docker.io 时，在 .env 里设 NODE_IMAGE=docker.1panel.live/library/node:22-alpine
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
     image: genshin-hub:latest
     container_name: genshin-hub
     restart: unless-stopped

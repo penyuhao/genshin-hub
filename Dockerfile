@@ -8,9 +8,13 @@
 #      这是非 root 容器最常见的"数据目录不可写"来源）
 #   4. 内置健康检查；支持 HTTPS（设置 SSL_CERT / SSL_KEY 即可，见 docs/deployment.md）
 #
+# 基础镜像可换源（国内 / NAS 拉不到 docker.io 时用得上）：
+#   docker compose build --build-arg NODE_IMAGE=docker.1panel.live/library/node:22-alpine
+#   docker build --build-arg NODE_IMAGE=docker.m.daocloud.io/library/node:22-alpine .
 # 构建时可选：
 #   docker build --build-arg NPM_REGISTRY=https://registry.npmmirror.com/ -t genshin-hub .
-FROM node:22-alpine
+ARG NODE_IMAGE=node:22-alpine
+FROM ${NODE_IMAGE}
 
 # tzdata：没有它 TZ=Asia/Shanghai 在 alpine 上是不生效的
 # su-exec：entrypoint 用来从 root 降权到 app
