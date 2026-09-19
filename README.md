@@ -2,7 +2,7 @@
 
 > 提瓦特旅行者手册 —— 一个**零构建步骤**的全栈站点：原神主题画廊 + Uptime Kuma 服务监控 + 全可视化配置后台。
 > 前端 HTML5 / 原生 ES Module / Canvas / Three.js ｜ 后端 Node.js + Express ｜ 单进程同源托管，开箱即跑。
-> PS:整个代码都由DeepSeek-ai编写,我只对部分代码做出了更改 如有问题请提交lssues
+> PS：整个代码均由 DeepSeek AI 编写，我只对部分代码做了修改；如有问题请提交 [Issues](https://github.com/penyuhao/genshin-hub/issues)。
 
 ![license](https://img.shields.io/badge/license-MIT-e8c877)
 ![node](https://img.shields.io/badge/node-%3E%3D18-7fd8d8)
