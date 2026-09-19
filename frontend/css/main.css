@@ -459,18 +459,32 @@ p { margin: 0; }
 /* 文字底衬：在文字块后面铺一层柔和的暗色光晕，无论背景多花都保证可读 */
 .slide-content::before {
   content: '';
+  /* 范围比文字块大一圈，让渐隐发生在离文字较远的地方 */
   position: absolute;
-  inset: -8% -10% -6% -8%;
+  inset: -44% -16% -38%;
   z-index: -1;
   pointer-events: none;
   border-radius: 28px;
   background: radial-gradient(
     ellipse at 22% 50%,
-    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.78)) 0%,
-    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.5)) 46%,
-    rgb(5 8 18 / 0) 76%
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.86)) 0%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.55)) 46%,
+    rgb(5 8 18 / 0) 78%
   );
   filter: blur(14px);
+  /* 四周再套一层"到边界即归零"的遮罩：暗底不会在上下左右留下一条直边 */
+  -webkit-mask-image: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    #000 50%,
+    rgb(0 0 0 / 0.58) 78%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    #000 50%,
+    rgb(0 0 0 / 0.58) 78%,
+    transparent 100%
+  );
 }
 
 .slide-title {
@@ -546,7 +560,7 @@ p { margin: 0; }
 .gallery-slide.align-right .slide-desc { margin-left: auto; }
 
 .gallery-slide.align-center .slide-content::before {
-  inset: -10% -8%;
+  inset: -44% -16% -38%;
   background: radial-gradient(
     ellipse at 50% 50%,
     rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.82)) 0%,
@@ -566,7 +580,7 @@ p { margin: 0; }
 }
 
 .gallery-slide.align-right .slide-content::before {
-  inset: -8% -8% -6% -10%;
+  inset: -44% -16% -38%;
   background: radial-gradient(
     ellipse at 78% 50%,
     rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.8)) 0%,
@@ -685,36 +699,53 @@ p { margin: 0; }
    从"一条硬边白条从左扫到右"改成"一层柔光飘过"，这就是所谓的"虚幻"：
      1) 三层叠加——宽辉光 + 窄亮芯 + 冷暖色偏，光有了体积，不再是一条线
      2) 整体 blur，边缘彻底糊开
-     3) 上下用 mask 淡出，避免出现一条贴上去的矩形硬边
+     3) 【关键】容器**不做 overflow 裁切**，范围放到比标题大一大圈，
+        并且四周用椭圆 mask 渐隐到 0 —— 上下左右都不会出现直边
      4) 只动 transform / opacity（合成器动画），手机上也不掉帧
      5) 同周期的标题光晕：光过时最亮、光走时变暗 —— 光像是"穿过"文字
    ============================================================ */
 .title-shine {
   position: absolute;
-  inset: -34% -8% -26%;
+  /* 范围比标题大一大圈：光的进出都发生在这圈之外 */
+  inset: -40% -30% -24%;
   z-index: 2;
-  overflow: hidden;
   pointer-events: none;
   opacity: 0;
   mix-blend-mode: screen;
-  /* 上下淡出，并且亮带压在字形垂直中线上：光不再是一条贴上去的矩形 */
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 33%, #000 72%, transparent 100%);
-  mask-image: linear-gradient(180deg, transparent 0%, #000 33%, #000 72%, transparent 100%);
+  /* 【消边的关键】椭圆遮罩：四个方向同时渐隐到 0。
+     只做上下渐隐是不够的 —— 光扫到左右两端时峰值正好压在容器边上，
+     依然会看到一条竖直的直边。这里让不透明度在**容器边界之前**就归零，
+     光就变成"一团飘过的柔光"，没有任何一条边。 */
+  -webkit-mask-image: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    #000 30%,
+    rgb(0 0 0 / 0.72) 56%,
+    rgb(0 0 0 / 0.36) 78%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    #000 30%,
+    rgb(0 0 0 / 0.72) 56%,
+    rgb(0 0 0 / 0.36) 78%,
+    transparent 100%
+  );
 }
 
 .title-shine::before {
   content: '';
+  /* 与容器同宽：靠渐变自身的透明两端收边，不靠裁切 */
   position: absolute;
-  inset: -30% -70%;
+  inset: 0;
   background-image:
-    linear-gradient(100deg, transparent 43%, rgb(255 253 245 / 0.32) 48%, rgb(255 255 255 / 0.48) 50%, rgb(255 253 245 / 0.32) 52%, transparent 57%),
-    linear-gradient(100deg, transparent 26%, rgb(255 244 208 / 0.16) 40%, rgb(255 250 235 / 0.22) 50%, rgb(255 244 208 / 0.16) 60%, transparent 74%),
-    linear-gradient(100deg, transparent 30%, rgb(150 214 255 / 0.12) 44%, rgb(255 236 190 / 0.14) 56%, transparent 70%);
+    linear-gradient(100deg, transparent 40%, rgb(255 253 245 / 0.3) 47%, rgb(255 255 255 / 0.46) 50%, rgb(255 253 245 / 0.3) 53%, transparent 60%),
+    linear-gradient(100deg, transparent 22%, rgb(255 244 208 / 0.14) 38%, rgb(255 250 235 / 0.2) 50%, rgb(255 244 208 / 0.14) 62%, transparent 78%),
+    linear-gradient(100deg, transparent 26%, rgb(150 214 255 / 0.1) 42%, rgb(255 236 190 / 0.12) 58%, transparent 74%);
   background-repeat: no-repeat;
   background-size: 100% 100%;
-  filter: blur(9px) saturate(1.05);
-  /* 起始位置完全在标题之外：光是从画面外"飘"进来的，不是凭空出现 */
-  transform: translate3d(-70%, 0, 0) skewX(-9deg);
+  filter: blur(11px) saturate(1.05);
+  /* 首尾都完全在容器之外：光是从画面外"飘"进来的，也没有被切断的地方 */
+  transform: translate3d(-115%, 0, 0) skewX(-9deg);
   will-change: transform, opacity;
 }
 
@@ -725,21 +756,22 @@ p { margin: 0; }
   animation: shineSweep 8.4s cubic-bezier(0.45, 0.05, 0.35, 1) 0.9s infinite;
 }
 
-/* 标题自身的呼吸光晕：与光幕同周期，让光看起来是穿过文字而不是贴在文字上 */
+/* 标题自身的呼吸光晕：与光幕同周期，让光看起来是穿过文字而不是贴在文字上
+   同样不留边：范围放到标题之外一大圈，靠显式椭圆半径在**范围之内**淡到 0 */
 .gallery-slide.effect-shine .slide-title::after {
   content: '';
   position: absolute;
-  inset: -26% -10%;
+  inset: -70% -22%;
   z-index: -1;
   pointer-events: none;
-  border-radius: 50%;
   background: radial-gradient(
-    ellipse at 32% 50%,
-    rgb(232 200 119 / 0.3) 0%,
-    rgb(232 200 119 / 0.12) 42%,
-    transparent 72%
+    ellipse 46% 45% at 34% 50%,
+    rgb(232 200 119 / 0.34) 0%,
+    rgb(232 200 119 / 0.14) 38%,
+    rgb(232 200 119 / 0.05) 68%,
+    transparent 100%
   );
-  filter: blur(16px);
+  filter: blur(18px);
   opacity: 0.42;
 }
 

@@ -687,11 +687,20 @@ async function boot() {
 
     initRouter();
 
-    // 8) 管理后台保存配置后同步前端
+    // 8) 管理后台保存配置后同步前端（无需手动刷新页面）
     document.addEventListener('config-saved', async () => {
       const { config: fresh } = await loadConfig({ force: true });
+      // 字体清单也一起刷新：后台可能刚上传了新字体
+      await initFonts();
       renderAll(fresh);
-      toast('前端已同步最新配置', 'success');
+      toast('已保存并即时生效', 'success');
+    });
+
+    // 8.1) 上传了新字体：重新注入 @font-face（不用刷新页面）
+    document.addEventListener('fonts-changed', async (event) => {
+      await initFonts();
+      const family = event?.detail?.family;
+      toast(family ? `字体已生效：${family}` : '字体已生效', 'success');
     });
 
     // 9) 状态面板推送 → 首页「服务状态速览」实时同步

@@ -7,7 +7,7 @@
 ![license](https://img.shields.io/badge/license-MIT-e8c877)
 ![node](https://img.shields.io/badge/node-%3E%3D18-7fd8d8)
 ![frontend](https://img.shields.io/badge/frontend-vanilla%20ESM-e8c877)
-![tests](https://img.shields.io/badge/tests-26%20%2B%2022%20%2B%20136%20passing-4ade80)
+![tests](https://img.shields.io/badge/tests-32%20%2B%2022%20%2B%20148%20%2B%2036%20passing-4ade80)
 ![audit](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-4ade80)
 
 **亮点**
@@ -449,10 +449,11 @@ KUMA_API_KEY=uk1_xxxxxxxxxxxxxxxx
 
 ```bash
 npm test                  # 跨平台冒烟测试（Windows / Linux / macOS 通用，需先 npm start）
-npm run test:full         # 冒烟 + 上传链路 + SSE + 前端 DOM 全跑
+npm run test:full         # 冒烟 + 上传链路 + 前端 DOM + 子页面刷新 + SSE 全跑
 npm run test:api          # 后端接口冒烟（PowerShell，Windows）
 npm run test:dom          # 前端 DOM 集成（Node + jsdom，跨平台）
 npm run test:uploads      # 上传链路（自带隔离实例与临时数据目录，无需真实密码）
+npm run test:refresh      # 子页面刷新回归（#download / #tools / #about 直接 F5 的显示）
 npm run test:sse          # SSE 实时推送验证（约 40 秒）
 ```
 
@@ -460,10 +461,12 @@ npm run test:sse          # SSE 实时推送验证（约 40 秒）
 
 | 测试 | 结果 |
 |---|---|
-| 跨平台冒烟（`tests/smoke.mjs`） | **26 / 26 通过**（服务存活 / 安全头 / 静态资源 MIME / 公开接口 / 验证码与权限边界 / SSE） |
+| 跨平台冒烟（`tests/smoke.mjs`） | **32 / 32 通过**（服务存活 / 安全头 / 静态资源 MIME / **缓存策略与 304** / 公开接口 / 验证码与权限边界 / SSE） |
 | 上传链路（`tests/uploads.mjs`） | **22 / 22 通过**（自建隔离实例：视频容器校验、伪造扩展名被拒且不留文件、Range 请求、配置字段校验、回归图片上传） |
+| 前端 DOM 集成 | **148 / 148 通过**（含 11 屏画廊、七国齐全、字体接入、柔光扫过无硬边、背景视频渲染与省流量策略、资讯已移除、下滑一步跳转、验证码登录、后台新区块、配置热重载） |
+| 子页面刷新回归（`tests/refresh.mjs`） | **36 / 36 通过**（`#download` / `#tools` / `#about` / `#home` 各自直接刷新：只显示一个视图、导航高亮正确、画廊仍有 11 屏、切回首页首屏被激活） |
 | 后端接口冒烟（PowerShell） | **34 / 34 通过**（另有 19 项"需管理员令牌"的用例：`.env` 密码与面板不一致时自动跳过，共 53 项） |
-| 前端 DOM 集成 | **136 / 136 通过**（含 11 屏画廊、七国齐全、字体接入、柔光扫过、背景视频渲染与省流量策略、资讯已移除、下滑一步跳转、验证码登录、后台新区块） |
+| SSE 实时推送 | 初始快照 + 变化广播 **通过** |
 | SSE 实时推送 | 初始快照 + 变化广播 **通过** |
 | **全新环境自举** | **通过**（无 `.env`、无数据目录 → 自动生成密钥与随机密码并正常服务） |
 | 上传落盘 | 通过（写入 `DATA_DIR/uploads`，经 `/uploads` 公开访问，代码目录保持只读可用） |
@@ -640,6 +643,21 @@ A：后台 →「画廊管理 → 某一屏 → **背景视频**」点「上传�
 A：默认上限 64MB（`MAX_VIDEO_MB` 可调）。除了扩展名，服务端还会校验**容器特征码**（MP4 的 `ftyp`、WebM 的 `1A 45 DF A3`、Ogg 的 `OggS`），
 所以"把 .txt 改成 .mp4"会被拒收并**立即删除**，不会在数据卷里留下垃圾。用 Nginx 反代时记得放宽 `client_max_body_size`（见部署文档）。
 
+**Q：改了配置 / 传了字体 / 部署了新版本，为什么页面没变？**
+A：分三种情况，v2.6.1 都已处理：
+① **后台保存配置** → 即时生效（保存后前端会重新拉配置并重渲染，提示语是"已保存并即时生效"），不用手动刷新；
+② **上传字体** → 也即时生效（后台会通知前端重新注入 `@font-face`）；
+③ **改了代码 / 拉取了新版本** → 前端文件（js/css/字体）现在是 `no-cache` + ETag，
+浏览器每次都会回服务器校验（没变就是 304），**普通刷新即最新**，不必强刷；
+但**后端代码**改动需要重启进程 —— 开发时请用 `npm run dev`（`node --watch`，改完自动重启），
+`npm start` 是生产用法，不会监听文件。
+
+**Q：为什么静态资源不用长缓存？**
+A：因为这个项目**没有构建步骤**，`main.js` / `main.css` 的文件名不带内容指纹。
+一旦给它们 `max-age=7d`，部署新版本后回访用户会继续用旧文件，表现就是"更新了但页面没变"。
+改成 `no-cache` 后每次都带 `ETag` 校验：没变返回 304（几乎不耗流量），变了立刻拿到新文件。
+真正长缓存的只有后台上传的图片/字体/视频 —— 它们的文件名带时间戳与随机串，内容永不覆盖。
+
 **Q：代码目录是只读的（比如 K8s 只读根文件系统），能跑吗？**
 A：可以。运行时只写 `DATA_DIR`，上传也落在 `DATA_DIR/uploads` 并通过 `/uploads` 提供；启动时会自检可写性，不可写会打印修复建议。
 
@@ -647,7 +665,27 @@ A：可以。运行时只写 `DATA_DIR`，上传也落在 `DATA_DIR/uploads` 并
 
 ## 十四、更新记录
 
-### v2.6（当前）
+### v2.6.1（当前）
+- **修复：在子页面（如 `#download`）刷新后"首页 + 目标页"同时显示**
+  根因：`index.html` 给首页预置了 `class="view is-active"`（无 JS 时也能看到内容），而首屏那次 `showView()`
+  的 `currentView` 还是空的 —— 旧实现只负责"把上一个视图淡出"，于是这个预置类一直留着，
+  两个 `.view` 同时 `display:block`：看到的是首页，下面还接着一截目标页内容。
+  现在 `showView()` 每次都会把除目标页以外的 `.view.is-active / .is-leaving` 全部收掉。
+  新增 `tests/refresh.mjs`（36 项）在真实 jsdom 里逐个 F5 验证 `#download` / `#tools` / `#about` / `#home`。
+- **光幕再消一层边：从"上下渐隐"升级为"四周椭圆渐隐"**
+  上一版虽然去掉了 `overflow:hidden`，但只做了上下渐隐 —— 光扫到左右两端时峰值正好压在容器边上，
+  仍然会看到一条竖直的直边。现在改成椭圆遮罩（`radial-gradient(ellipse 50% 50% ...)`），
+  四个方向同时渐隐到 0，并且首尾行程加到 ±115%，光完全在容器外进出。顺带把"文字底衬暗底"和
+  "标题光晕"也套上同样的"到边界即归零"遮罩（后者不再用 `border-radius` 切椭圆）。
+- **修复：部分更新不生效（"更新不能热重载"）** —— 三个原因一起解决
+  1. **静态资源长缓存**：前端没有构建步骤、文件名不带指纹，却给了 `max-age=7d`，
+     部署新版本后浏览器继续用旧 JS/CSS。现在 `js/css/字体/页面` 统一 `no-cache` + ETag 校验（没变返回 **304**，几乎不耗流量），
+     刷新即最新；只有后台上传的文件（文件名带随机指纹）才长缓存。
+  2. **上传字体要手动刷新**：后台登记字体后会派发 `fonts-changed`，前端立即重新拉清单并注入 `@font-face`。
+  3. **改后端代码要手动重启**：`npm start` 不监听文件，改代码用 `npm run dev`（`node --watch` 自动重启）；
+     启动横幅在非生产模式下会直接提示这一行。
+
+### v2.6.0
 - **背景支持视频**（画廊每一屏）
   - 后台「画廊管理 → 背景视频」可直接上传（`mp4 / m4v / webm / ogv / mov`，默认 ≤64MB，`MAX_VIDEO_MB` 可调）或填 https 直链
   - **除扩展名外还校验容器特征码**（`ftyp` / `1A 45 DF A3` / `OggS`）：改扩展名的假视频会被拒收并立刻从数据卷删除

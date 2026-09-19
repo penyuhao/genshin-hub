@@ -48,13 +48,14 @@
 }
 
 /* 光幕扫过：慢进慢出，整段扫完只占周期的前 2/3，后面留一段安静期
-   （恒定速度的匀速硬扫才是"突兀"的来源） */
+   （恒定速度的匀速硬扫才是"突兀"的来源）
+   首尾 ±115%：光在容器之外就已经完全透明，中途也不会碰到任何边界 */
 @keyframes shineSweep {
-  0% { transform: translate3d(-70%, 0, 0) skewX(-9deg); opacity: 0; }
+  0% { transform: translate3d(-115%, 0, 0) skewX(-9deg); opacity: 0; }
   12% { opacity: 0.8; }
   46% { opacity: 1; }
-  68% { transform: translate3d(55%, 0, 0) skewX(-9deg); opacity: 0; }
-  100% { transform: translate3d(55%, 0, 0) skewX(-9deg); opacity: 0; }
+  68% { transform: translate3d(115%, 0, 0) skewX(-9deg); opacity: 0; }
+  100% { transform: translate3d(115%, 0, 0) skewX(-9deg); opacity: 0; }
 }
 
 /* 与光幕同周期的标题光晕：光过时最亮、光走时变暗 */

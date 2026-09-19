@@ -204,6 +204,9 @@ async function main() {
 
   // 光幕特效：从"硬边白条匀速扫过"改成"多层柔光飘过"（虚幻感）
   const shineBlock = (mainCss.match(/\.title-shine::before\s*\{[\s\S]*?\n\}/) || [''])[0];
+  const shineHost = (mainCss.match(/\.title-shine\s*\{[\s\S]*?\n\}/) || [''])[0];
+  const haloBlock = (mainCss.match(/\.gallery-slide\.effect-shine \.slide-title::after\s*\{[\s\S]*?\n\}/) || [''])[0];
+  const backingBlock = (mainCss.match(/\.slide-content::before\s*\{[\s\S]*?\n\}/) || [''])[0];
   const shineDelay = Number((mainCss.match(/\.gallery-slide\.is-active \.title-shine::before\s*\{[^}]*?(\d*\.?\d+)s\s+infinite/) || [])[1]);
   check('光幕在文字浮现之后才扫过（延迟 ≤0.9s）',
     /\.gallery-slide\.is-active \.title-shine::before\s*\{[^}]*animation:\s*shineSweep/.test(mainCss)
@@ -213,8 +216,9 @@ async function main() {
     (shineBlock.match(/linear-gradient/g) || []).length >= 3,
     `层数 ${(shineBlock.match(/linear-gradient/g) || []).length}`);
   check('光幕整体做模糊（边缘不再是一条硬边）', /filter:\s*blur\(/.test(shineBlock), shineBlock.slice(0, 80));
-  check('光幕上下用 mask 淡出（不出现矩形硬边）',
-    /\.title-shine\s*\{[^}]*mask-image:\s*linear-gradient/.test(mainCss));
+  check('光幕四周用椭圆遮罩渐隐（不再是只做上下的矩形裁切）',
+    /mask-image:\s*radial-gradient\(\s*ellipse/.test(shineHost) && /transparent 100%\s*\)/.test(shineHost),
+    shineHost.replace(/\s+/g, ' ').slice(0, 90));
   check('扫过不再是匀速硬扫（关键帧有淡入 / 淡出 / 停留）',
     /@keyframes shineSweep[\s\S]{0,420}opacity:\s*0;[\s\S]{0,240}\n\}/.test(animationsCss));
   check('光幕只动 transform / opacity（合成器动画，不掉帧）',
@@ -223,6 +227,26 @@ async function main() {
     /@keyframes haloBreath/.test(animationsCss)
     && /\.gallery-slide\.effect-shine\.is-active \.slide-title::after\s*\{[^}]*haloBreath/.test(mainCss),
     '');
+
+  // 回归：光幕曾经把范围只放大 8%，又用 overflow:hidden 裁切，
+  // 于是整条光在标题左右两端被切成直边（用户反馈的"很明显的边界"）。
+  // 现在必须靠"范围足够大 + 四周椭圆遮罩渐隐到 0"收边，而不是裁切。
+  check('光幕不再被容器硬裁切（去掉 overflow:hidden）',
+    !/overflow:\s*hidden/.test(shineHost), shineHost.replace(/\s+/g, ' ').slice(0, 100));
+  check('光幕范围比标题大一大圈（横向 ≥30% 余量）',
+    /inset:\s*-\d+%\s*-([3-9]\d)%/.test(shineHost), shineHost.replace(/\s+/g, ' ').slice(0, 90));
+  check('光的首尾完全在容器之外（±115%，进出都不碰边）',
+    /0%[^}]*translate3d\(-115%/.test(animationsCss) && /68%[^}]*translate3d\(115%/.test(animationsCss),
+    (animationsCss.match(/@keyframes shineSweep[\s\S]{0,420}?\n\}/) || [''])[0].replace(/\s+/g, ' ').slice(0, 120));
+  check('遮罩的不透明度在容器边界之前就归零（有边也看不见边）',
+    /ellipse 50% 50% at 50% 50%/.test(shineHost)
+    && /radial-gradient\(\s*ellipse 50% 50% at 50% 50%,\s*#000 \d+%/.test(shineHost.replace(/\/\*[\s\S]*?\*\//g, '')),
+    shineHost.replace(/\s+/g, ' ').slice(0, 110));
+  check('标题光晕自己淡到 0（不再用 border-radius 切椭圆边）',
+    /transparent 100%/.test(haloBlock) && !/border-radius/.test(haloBlock),
+    haloBlock.replace(/\s+/g, ' ').slice(0, 100));
+  check('文字底衬也套了"到边界即归零"的遮罩',
+    /mask-image:\s*radial-gradient/.test(backingBlock), backingBlock.replace(/\s+/g, ' ').slice(0, 100));
 
   console.log('\n[阶段4+++] 逐屏外观自定义（特效 / 对齐 / 位置 / 字号 / 遮罩）');
   const effects = qa('.gallery-slide').map((el2) => el2.dataset.effect);
@@ -608,6 +632,24 @@ async function main() {
     /\.slide-video\s*\{/.test(mainCss) && /\.slide-bg\.has-video::after\s*\{\s*z-index:\s*1/.test(mainCss));
 
   console.log('\n[阶段9] 运行时健康度');
+  // 回归：index.html 给首页预置了 is-active，而首屏那次 showView 的 currentView 还是空的，
+  // 旧实现不会收掉这个预置类 → 在 #download / #tools 上刷新会"首页与目标页同时显示"。
+  const routerJs = readSrc('frontend/js/router.js');
+  check('路由在首屏切换时会清掉 index.html 预置的 is-active（刷新子页面不再重叠）',
+    /querySelectorAll\(['"]\.view\.is-active/.test(routerJs) && /remove\(['"]is-active['"]/.test(routerJs),
+    '');
+  check('index.html 的预置激活视图确实存在（这条回归的场景前提）',
+    /id="view-home"[^>]*class="[^"]*is-active/.test(html), '');
+  check('同一时刻只有一个视图处于激活状态', qa('.view.is-active').length === 1,
+    `实际 ${qa('.view.is-active').length} 个：${qa('.view.is-active').map((e2) => e2.id).join(',')}`);
+
+  console.log('\n[阶段9+] 配置热重载（改完不用手动刷新）');
+  check('保存配置后前端重新拉取并重渲染', /addEventListener\('config-saved'/.test(mainJs) && /renderAll\(fresh\)/.test(mainJs));
+  check('上传字体后重新注入 @font-face（不必刷新页面）',
+    /fonts-changed/.test(mainJs) && /await initFonts\(\)/.test(mainJs) && /fonts-changed/.test(adminJs),
+    '');
+  check('保存配置的提示文案已改为即时生效', /已保存并即时生效/.test(mainJs), '');
+
   check('无未捕获运行时异常', runtimeErrors.length === 0, runtimeErrors.slice(0, 3).join(' | '));
   const fatalConsole = consoleErrors.filter((m) => !/favicon|404/i.test(m));
   check('无严重控制台错误', fatalConsole.length === 0, fatalConsole.slice(0, 3).join(' | '));

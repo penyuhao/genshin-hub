@@ -42,6 +42,15 @@ export function showView(view, { scrollTop = true } = {}) {
 
   const prev = currentView ? document.getElementById(`view-${currentView}`) : null;
 
+  // index.html 里给首页预置了 is-active（无 JS 时也能看到内容），
+  // 而首屏这次调用 currentView 还是空的 —— 如果不显式收掉，
+  // 直接在 #download / #tools 等地址刷新就会变成"首页与目标页同时 display:block"，
+  // 表现为页面看起来还是首页、下面又接了一截别的内容。
+  document.querySelectorAll('.view.is-active, .view.is-leaving').forEach((el) => {
+    if (el === next || el === prev) return;
+    el.classList.remove('is-active', 'is-leaving');
+  });
+
   if (prev && prev !== next) {
     prev.classList.add('is-leaving');
     setTimeout(() => {

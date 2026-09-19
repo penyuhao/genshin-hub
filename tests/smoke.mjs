@@ -8,10 +8,27 @@
 // 说明：管理员账号密码从 server/.env 读取（读不到就跳过登录相关用例），
 //      不会把任何凭据写死在代码里。
 import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 
 const BASE = (process.env.BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
 const ROOT = path.resolve(import.meta.dirname, '..');
+
+/** 用 node:http 发一次 GET（fetch 不允许设置 If-None-Match 这类条件请求头） */
+function httpGet(pathname, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(`${BASE}${pathname}`);
+    const req = http.request(
+      { method: 'GET', hostname: url.hostname, port: url.port || 80, path: url.pathname + url.search, headers },
+      (res) => {
+        res.resume();
+        res.on('end', () => resolve({ status: res.statusCode, headers: res.headers }));
+      }
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
 
 let pass = 0;
 let fail = 0;
@@ -93,6 +110,27 @@ for (const [file, expectType] of [
   const res = await fetch(`${BASE}${file}`);
   const type = res.headers.get('content-type') || '';
   check(`${file} 可访问且 MIME 正确`, res.status === 200 && type.includes(expectType), `HTTP ${res.status} ${type}`);
+}
+
+// 前端没有构建步骤、文件名不带指纹：长缓存会导致"更新了但页面没变"。
+// 这些资源必须每次回服务器校验（no-cache + ETag）
+console.log('\n[2.1] 静态资源缓存策略（保证更新即时生效）');
+for (const file of ['/js/main.js', '/js/admin.js', '/css/main.css', '/css/animations.css']) {
+  const res = await fetch(`${BASE}${file}`);
+  const cache = (res.headers.get('cache-control') || '').toLowerCase();
+  check(`${file} 不做长缓存（no-cache，带 ETag 校验）`,
+    cache.includes('no-cache') && !/max-age=[1-9]/.test(cache), cache || '(无 Cache-Control)');
+}
+{
+  // 条件请求应当拿到 304，说明 no-cache 并不等于"每次都重新下载"。
+  // 注意：If-None-Match / If-Modified-Since 属于 fetch 规范的禁用请求头，
+  // 用 fetch 发不出去，所以这里直接用 node:http。
+  const first = await fetch(`${BASE}/js/main.js`);
+  const etag = first.headers.get('etag');
+  const second = await httpGet('/js/main.js', { 'If-None-Match': etag || '' });
+  const third = await httpGet('/js/main.js', { 'If-Modified-Since': first.headers.get('last-modified') || '' });
+  check('带 ETag 的条件请求返回 304（省流量）', Boolean(etag) && second.status === 304, `etag=${etag} HTTP ${second.status}`);
+  check('带 Last-Modified 的条件请求也返回 304', third.status === 304, `HTTP ${third.status}`);
 }
 
 // ---------- 3. 公开 API ----------

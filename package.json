@@ -1,6 +1,6 @@
 {
   "name": "genshin-hub",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "private": true,
   "description": "原神功能快捷站 —— 七国画廊 + Uptime Kuma 监控面板 + 全可视化配置后台（零构建步骤，可部署到任何平台）",
   "keywords": [
@@ -21,9 +21,10 @@
     "dev": "node --watch server/index.js",
     "serve": "node server/index.js",
     "test": "node tests/smoke.mjs",
-    "test:full": "node tests/smoke.mjs && node tests/uploads.mjs && node tests/sse-live.mjs && node tests/frontend-dom.mjs",
+    "test:full": "node tests/smoke.mjs && node tests/uploads.mjs && node tests/frontend-dom.mjs && node tests/refresh.mjs && node tests/sse-live.mjs",
     "test:api": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/api-smoke.ps1",
     "test:dom": "node tests/frontend-dom.mjs",
+    "test:refresh": "node tests/refresh.mjs",
     "test:uploads": "node tests/uploads.mjs",
     "test:sse": "node tests/sse-live.mjs",
     "install:server": "npm --prefix server install"

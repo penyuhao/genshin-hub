@@ -51,30 +51,34 @@ app.use(helmetConfig);
 app.use(corsConfig);
 
 // ---------- 静态资源（同源托管前端，避免跨域与密钥暴露）----------
+// 前端没有构建步骤、文件名也不带内容指纹 —— 一旦给 js/css/字体长缓存，
+// 部署新版本后浏览器会继续用旧文件，表现就是"明明更新了，页面却没变"。
+// 所以这里统一用 no-cache：每次带 ETag 回服务器校验，没变就 304（几乎不耗流量），
+// 变了立刻拿到新文件。真正适合长缓存的只有后台上传的文件（文件名自带随机指纹）。
+const REVALIDATE = 'no-cache';
+const STATIC_ASSET = /\.(?:js|mjs|css|html|json|webmanifest|svg|woff2?|ttf|otf|png|jpe?g|webp|gif|ico)$/i;
+
 const staticOptions = {
   etag: true,
   lastModified: true,
-  maxAge: isProd ? '7d' : 0,
   setHeaders(res, filePath) {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
-    }
-    if (filePath.endsWith('.woff2') || filePath.endsWith('.woff')) {
-      res.setHeader('Cache-Control', isProd ? 'public, max-age=31536000, immutable' : 'no-cache');
-    }
+    if (STATIC_ASSET.test(filePath)) res.setHeader('Cache-Control', REVALIDATE);
   },
 };
 
 app.use(express.static(FRONTEND_DIR, staticOptions));
 
-// 后台上传的图片与字体存放在数据目录（可挂载卷 / 只读代码目录也能用）
+// 后台上传的图片/字体/视频存放在数据目录（可挂载卷 / 只读代码目录也能用）
+// 文件名是「时间戳 + 随机串」，内容永不覆盖 → 长缓存最划算（开发时仍走校验）
 app.use(
   '/uploads',
   express.static(paths.UPLOAD_DIR, {
     ...staticOptions,
     index: false,
     dotfiles: 'deny',
-    maxAge: isProd ? '30d' : 0,
+    setHeaders(res) {
+      res.setHeader('Cache-Control', isProd ? 'public, max-age=31536000, immutable' : REVALIDATE);
+    },
   })
 );
 
@@ -184,6 +188,9 @@ async function start() {
     console.log(`  ├─ 轮询间隔  ${interval / 1000}s（SSE 推送）`);
     console.log(`  ├─ Socket    ${socketInfo.enabled ? '已启用' : '未启用（轮询模式）'}`);
     console.log(`  ├─ 验证码    ${authSettings.captchaEnabled ? '已开启（登录需图形验证码）' : '已关闭'}`);
+    if (!isProd) {
+      console.log('  ├─ 热重载    改前端文件刷新即生效；改后端代码请用 npm run dev（自动重启）');
+    }
     console.log(`  ├─ 数据目录  ${dirs.dataDir}${writable.ok ? '' : '  ⚠ 不可写'}`);
     console.log(`  ├─ 上传目录  ${dirs.uploadDir}`);
     console.log(`  ├─ 管理后台  http://${shownHost}:${PORT}/#admin`);

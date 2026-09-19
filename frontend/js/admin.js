@@ -1576,6 +1576,9 @@ export class AdminPanel {
         invalidateConfigCache();
         this.config = null;
       }
+      // 通知前端重新拉取字体清单并注入 @font-face：
+      // 否则刚上传的字体要手动刷新页面才会出现（"更新不热重载"的一半原因）
+      document.dispatchEvent(new CustomEvent('fonts-changed', { detail: { family: result.family } }));
     } catch (err) {
       console.warn('[admin] 字体登记失败：', err.message);
     }
