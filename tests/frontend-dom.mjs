@@ -290,6 +290,20 @@ async function main() {
     '');
   check('特效动画关键帧齐备（渐变流动 / 霓虹呼吸）',
     /@keyframes\s+gradientFlow/.test(animationsCss) && /@keyframes\s+neonPulse/.test(animationsCss));
+  check('新增 3 种动画特效（逐字波浪 / 故障风 / 极光）都定义了样式',
+    ['wave', 'glitch', 'aurora'].every((e2) => mainCss.includes(`effect-${e2}`)), '');
+  check('新增特效的关键帧齐备',
+    ['charWave', 'glitchShiftA', 'glitchShiftB', 'auroraFlow', 'auroraHue', 'cardShine']
+      .every((k) => animationsCss.includes(k)));
+  check('后端、画廊与后台三处都认识这 9 种特效',
+    /'wave', 'glitch', 'aurora'/.test(readSrc('server/middleware/validate.js'))
+    && /'wave', 'glitch', 'aurora'/.test(readSrc('frontend/js/gallery.js'))
+    && /逐字波浪/.test(readSrc('frontend/js/admin.js')), '');
+  check('顶部滚动进度条就位（把画廊内部进度也算进去）',
+    Boolean(q('#scrollProgress')) && /\.scroll-progress\s*\{/.test(mainCss)
+    && /function setupScrollProgress/.test(mainJs) && /galleryEl\.scrollTop/.test(mainJs), '');
+  check('状态数字有滚动动画（只在数值变化时触发）',
+    /function animateCount/.test(mainJs) && /state\.lastStatusCounts/.test(mainJs));
   // 回归：渐变特效曾把 background-clip 放在父级，而每个字带 transform，
   // 导致字形与渐变裁切错位（枫丹、蒙德两屏"字体错位"）。现在必须下放到 .char。
   check('渐变特效不做父级文字裁切（避免字形错位）',

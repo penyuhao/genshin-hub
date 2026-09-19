@@ -69,7 +69,7 @@ export class Gallery {
       const titleText = hasText(slide.title) ? slide.title : '';
 
       // 逐屏外观：特效 / 对齐 / 垂直位置 / 字号倍率 / 遮罩强度 / Ken Burns
-      const effect = ['shine', 'gradient', 'neon', 'outline', 'offset', 'plain'].includes(slide.effect)
+      const effect = ['shine', 'gradient', 'neon', 'outline', 'offset', 'plain', 'wave', 'glitch', 'aurora'].includes(slide.effect)
         ? slide.effect
         : 'shine';
       const align = ['left', 'center', 'right'].includes(slide.align) ? slide.align : 'left';

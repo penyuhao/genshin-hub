@@ -7,7 +7,7 @@
 ![license](https://img.shields.io/badge/license-MIT-e8c877)
 ![node](https://img.shields.io/badge/node-%3E%3D18-7fd8d8)
 ![frontend](https://img.shields.io/badge/frontend-vanilla%20ESM-e8c877)
-![tests](https://img.shields.io/badge/tests-33%20%2B%2030%20%2B%2014%20%2B%20167%20%2B%2036%20passing-4ade80)
+![tests](https://img.shields.io/badge/tests-34%20%2B%2030%20%2B%2014%20%2B%20172%20%2B%2036%20passing-4ade80)
 ![audit](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-4ade80)
 
 **亮点**
@@ -462,10 +462,10 @@ npm run test:sse          # SSE 实时推送验证（约 40 秒）
 
 | 测试 | 结果 |
 |---|---|
-| 跨平台冒烟（`tests/smoke.mjs`） | **33 / 33 通过**（服务存活 / 安全头 / **版本号** / 静态资源 MIME / **缓存策略与 304** / 公开接口 / 验证码与权限边界 / SSE） |
+| 跨平台冒烟（`tests/smoke.mjs`） | **34 / 34 通过**（服务存活 / 安全头与 **CSP 媒体策略** / 版本号 / 静态资源 MIME / **缓存策略与 304** / 公开接口 / 验证码与权限边界 / SSE） |
 | 上传链路（`tests/uploads.mjs`） | **30 / 30 通过**（自建隔离实例：视频容器校验、伪造扩展名被拒且不留文件、Range 请求、**链接归一化**、配置字段校验、回归图片上传） |
 | **后台保存链路（`tests/admin-save.mjs`）** | **14 / 14 通过**（真实点击「保存配置」→ 服务端配置变更 + 备份生成 + 连续保存 + 错误框与字段标红 + 非法值不写入） |
-| 前端 DOM 集成 | **167 / 167 通过**（含 11 屏画廊、七国齐全、字体接入、柔光扫过无硬边、背景视频、滚轮不被画廊抢走、配置缓存与跨标签页同步、错误框与字段高亮） |
+| 前端 DOM 集成 | **172 / 172 通过**（含 11 屏画廊、七国齐全、字体接入、柔光扫过无硬边、背景视频、**9 种标题特效与进度条**、滚轮不被画廊抢走、配置缓存与跨标签页同步、错误框与字段高亮） |
 | 子页面刷新回归（`tests/refresh.mjs`） | **36 / 36 通过**（`#download` / `#tools` / `#about` / `#home` 各自直接刷新：只显示一个视图、导航高亮正确、画廊仍有 11 屏、切回首页首屏被激活） |
 | 后端接口冒烟（PowerShell） | **34 / 34 通过**（另有 19 项"需管理员令牌"的用例：`.env` 密码与面板不一致时自动跳过，共 53 项） |
 | SSE 实时推送 | 初始快照 + 变化广播 **通过** |
@@ -687,7 +687,31 @@ A：可以。运行时只写 `DATA_DIR`，上传也落在 `DATA_DIR/uploads` 并
 
 ## 十四、更新记录
 
-### v2.6.3（当前）
+### v2.7.0（当前）
+- **Docker 构建/运行修好了**
+  - `tzdata` 缺失：`TZ=Asia/Shanghai` 在 alpine 上本来是不生效的，现在装上了
+  - **新增 `docker-entrypoint.sh`**：容器先以 root 修正 `/data` 属主，再用 `su-exec` 降权到 `app` 运行 ——
+    `docker compose` 的 `./data:/data` 绑定挂载目录在宿主机上默认属于 root，这正是"容器起来了但保存不了、
+    数据目录不可写"的头号原因（命名卷与绑定挂载现在都能直接用）
+  - 入口脚本在构建时 `chmod +x`（Windows 检出没有可执行位，这一步不能省）
+  - 构建可选 `--build-arg NPM_REGISTRY=https://registry.npmmirror.com/`，国内构建不用改文件
+  - `.dockerignore` 补上 `HoYo-Glyphs-Release` / `docs` / `.local` / `*.log`，构建上下文更小
+  - `HEALTHCHECK` 会跟随协议（配了证书就探 https）
+- **同时支持 http 与 https**
+  - **链接字段不再强制 https**：`http://192.168.1.10:3001/` 这类内网地址原样保留（只写域名时仍默认补 https）；
+    CSP 的 `img-src` / `media-src` 也放行 `http:`（HTTPS 页面下浏览器依然会拦混合内容，所以不损失安全性）
+  - **服务端可直接跑 HTTPS，零依赖、不用装 Nginx**：`SSL_CERT` + `SSL_KEY`（PEM 路径或直接粘内容）、
+    或 `SSL_PFX`（Windows / 群晖导出的 .pfx）、`HTTPS_REDIRECT_PORT` 可再加一个 http 端口 302 跳到 https；
+    不配置时行为完全不变（纯 http，适合放在反代后面）。启动横幅会标明当前协议
+- **动效更多了**
+  - 画廊标题新增 **3 种特效**：**逐字波浪**（字按序起伏，像水面）、**故障风**（青/粉错位闪烁）、
+    **极光**（青→金→紫流动 + 色相呼吸）—— 后台「画廊管理 → 标题特效」共 **9 种**可选
+  - **顶部滚动进度条**：把"画廊内部进度 + 页面进度"合在一起算，翻 11 屏和往下读内容都会走
+  - **状态数字滚动**：监控总数 / 在线 / 异常等数字从 0 涨到目标值，且**只在数值变化时**滚一次
+  - **卡片悬停柔光**：下载卡片与索引卡片悬停时一道光带扫过（纯 CSS）
+  - 全部动效依旧尊重 `prefers-reduced-motion`
+
+### v2.6.3
 - **修复（重要）：后台「保存配置」按钮点下去根本没反应 —— 所有通用区块都存不进去**
   根因：保存按钮放在区块标题栏（header）里，也就是 `<form>` 的**兄弟节点**。
   按 HTML 规范，`type="submit"` 的按钮只有在能解析出 **form owner**（自己位于 `<form>` 内，或带 `form` 属性）

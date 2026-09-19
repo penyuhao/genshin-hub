@@ -150,6 +150,51 @@ app.use((err, req, res, next) => {
 
 // ---------- 启动 ----------
 let server = null;
+let redirectServer = null;
+
+/**
+ * HTTPS 支持（可选，零依赖）：
+ *   SSL_KEY  / SSL_CERT        PEM 文件路径（或直接给 PEM 内容）→ 直接以 https 提供服务
+ *   SSL_PFX / SSL_PFX_PASSPHRASE  也可以直接给一个 .pfx/.p12（Windows、群晖导出常见格式）
+ *   SSL_KEY_PASSPHRASE         私钥口令（可选）
+ *   HTTPS_REDIRECT_PORT         额外监听一个 http 端口并 302 跳到 https（例如 80）
+ * 不设置这些变量时行为完全不变（纯 http），放在 Nginx / Caddy 后面也不需要它们。
+ */
+function resolveTls() {
+  const readText = (value, label) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (raw.includes('-----BEGIN')) return raw; // 直接粘的 PEM 内容
+    try {
+      return require('fs').readFileSync(raw, 'utf-8');
+    } catch (err) {
+      throw new Error(`读取${label}失败：${raw}（${err.code || err.message}）`);
+    }
+  };
+
+  const passphrase = String(process.env.SSL_KEY_PASSPHRASE || '').trim();
+  const pfxPath = String(process.env.SSL_PFX || '').trim();
+
+  if (pfxPath) {
+    let pfx;
+    try {
+      pfx = require('fs').readFileSync(pfxPath);
+    } catch (err) {
+      throw new Error(`读取 PFX 失败：${pfxPath}（${err.code || err.message}）`);
+    }
+    const pfxPass = String(process.env.SSL_PFX_PASSPHRASE || '').trim();
+    return { pfx, ...(pfxPass ? { passphrase: pfxPass } : {}) };
+  }
+
+  const key = readText(process.env.SSL_KEY, '私钥');
+  const cert = readText(process.env.SSL_CERT, '证书');
+  if (!key && !cert) return null;
+  if (!key || !cert) {
+    throw new Error('SSL_KEY 与 SSL_CERT 必须同时提供（一个是私钥、一个是证书链），或改用 SSL_PFX');
+  }
+
+  return { key, cert, ...(passphrase ? { passphrase } : {}) };
+}
 
 async function start() {
   // 1) 目录准备（数据目录可指向挂载卷）
@@ -163,6 +208,8 @@ async function start() {
     console.error('    原因：', writable.error);
     console.error('    解决：设置 DATA_DIR 指向可写目录（或给容器挂载可写卷），例如');
     console.error('          DATA_DIR=/data  docker run -v mydata:/data ...');
+    console.error('          容器里以非 root 运行时，绑定挂载目录常属于 root：');
+    console.error('          chown -R 1000:1000 ./data');
     console.error('');
   }
 
@@ -182,7 +229,30 @@ async function start() {
 
   bootstrap.printFirstRunNotice({ jwt, admin, dataDirInfo: dirs.dataDir });
 
-  server = app.listen(PORT, HOST, async () => {
+  // 6) 传输层：默认 http；配了证书就走 https（并可选把 http 跳转到 https）
+  const tls = resolveTls();
+  const scheme = tls ? 'https' : 'http';
+
+  if (tls) {
+    server = require('https').createServer(tls, app).listen(PORT, HOST, onListening);
+  } else {
+    server = app.listen(PORT, HOST, onListening);
+  }
+
+  const redirectPort = Number(process.env.HTTPS_REDIRECT_PORT) || 0;
+  if (tls && redirectPort > 0 && redirectPort !== PORT) {
+    redirectServer = require('http')
+      .createServer((req, res) => {
+        const host = String(req.headers.host || '').replace(/:\d+$/, '') || 'localhost';
+        res.writeHead(302, { Location: `https://${host}${redirectPort === 443 ? '' : `:${PORT}`}${req.url}` });
+        res.end();
+      })
+      .listen(redirectPort, HOST, () => {
+        console.log(`  ├─ 跳转      http://${HOST}:${redirectPort} → https://…:${PORT}`);
+      });
+  }
+
+  async function onListening() {
     const configured = isConfigured();
     const authSettings = await authService.getSettings().catch(() => ({ username: 'admin', captchaEnabled: true }));
     const kumaCfg = kumaConfig.get();
@@ -191,8 +261,9 @@ async function start() {
     console.log('');
     console.log(`  原神功能快捷站 · 后端已启动（v${APP_VERSION}）`);
     console.log(`  ├─ 监听      ${HOST}:${PORT}${HOST === '0.0.0.0' ? '（所有网卡）' : ''}`);
-    console.log(`  ├─ 地址      http://${shownHost}:${PORT}`);
-    console.log(`  ├─ 健康检查  http://${shownHost}:${PORT}/health`);
+    console.log(`  ├─ 协议      ${tls ? 'HTTPS（已加载证书）' : 'HTTP（未配置证书，适合放在反代后面）'}`);
+    console.log(`  ├─ 地址      ${scheme}://${shownHost}:${PORT}`);
+    console.log(`  ├─ 健康检查  ${scheme}://${shownHost}:${PORT}/health`);
     console.log(`  ├─ 数据源    ${configured ? '真实 Kuma 数据源' : 'Mock 演示模式'}${configured ? `（来源：${kumaCfg.source === 'panel' ? '控制面板' : '环境变量'}）` : ''}`);
     console.log(`  ├─ 轮询间隔  ${interval / 1000}s（SSE 推送）`);
     console.log(`  ├─ Socket    ${socketInfo.enabled ? '已启用' : '未启用（轮询模式）'}`);
@@ -202,10 +273,10 @@ async function start() {
     }
     console.log(`  ├─ 数据目录  ${dirs.dataDir}${writable.ok ? '' : '  ⚠ 不可写'}`);
     console.log(`  ├─ 上传目录  ${dirs.uploadDir}`);
-    console.log(`  ├─ 管理后台  http://${shownHost}:${PORT}/#admin`);
+    console.log(`  ├─ 管理后台  ${scheme}://${shownHost}:${PORT}/#admin`);
     console.log(`  └─ 管理员    ${authSettings.username}`);
     console.log('');
-  });
+  }
 }
 
 function shutdown(signal) {
@@ -213,6 +284,7 @@ function shutdown(signal) {
   sseBus.closeAll();
   statusService.stopPolling();
   kumaSocket.disconnectKuma();
+  if (redirectServer) redirectServer.close();
   if (server) {
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 3000).unref();

@@ -12,10 +12,10 @@ const helmetConfig = helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"], // 动态主题变量需要内联 style 属性
-      imgSrc: ["'self'", 'data:', 'https:'],
+      imgSrc: ["'self'", 'data:', 'https:', 'http:'], // http: 给自建 http 站点/内网图片放行；HTTPS 页面下浏览器仍会拦混合内容
       connectSrc: ["'self'"],
       fontSrc: ["'self'", 'data:'],
-      mediaSrc: ["'self'", 'https:'], // 背景音乐
+      mediaSrc: ["'self'", 'https:', 'http:'], // 背景音乐与背景视频（同理）
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
       baseUri: ["'self'"],

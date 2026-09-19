@@ -145,6 +145,20 @@ DATA_DIR/                    默认 server/data，可用环境变量覆盖
 | `JWT_EXPIRES_IN` | `24h` | 登录令牌有效期 |
 | `CAPTCHA_BYPASS_TOKEN` | 空 | 自动化测试旁路令牌，**生产留空** |
 
+### HTTPS（可选，零依赖，不用装 Nginx）
+
+| 变量 | 说明 |
+|---|---|
+| `SSL_CERT` / `SSL_KEY` | PEM 证书链与私钥：**文件路径**或直接粘贴 PEM 内容；两个必须同时给 |
+| `SSL_KEY_PASSPHRASE` | 私钥口令（可选） |
+| `SSL_PFX` / `SSL_PFX_PASSPHRASE` | 也可以直接给 `.pfx` / `.p12`（Windows、群晖导出常见） |
+| `HTTPS_REDIRECT_PORT` | 额外监听一个 http 端口并 302 跳到 https（例如 `80`）；留空则不开跳转 |
+
+> 都不设置 = 纯 http（默认，适合放在 Nginx / Caddy / 云负载均衡后面）。设置了就直接以 https 对外服务，
+> `NODE_ENV=production` 时同时启用 HSTS。
+>
+> **后台填的 `http://` 链接会原样保留**（内网 / NAS 上只提供 http 的服务很常见），只有"只写域名"时才默认补 `https://`。
+
 ---
 
 ## 四、平台部署示例
@@ -280,6 +294,20 @@ volumes:
 
 ## 五、反向代理与 HTTPS
 
+> **也可以不装反代**：服务端自带 HTTPS（零依赖）。设置 `SSL_CERT` + `SSL_KEY`（PEM）或 `SSL_PFX`（.pfx）即可，
+> 需要的话再加 `HTTPS_REDIRECT_PORT=80` 把 http 请求 302 跳过去 —— 单机 / NAS 场景这样最省事。
+> 已经有 Nginx / Caddy / Traefik 的，保持默认（纯 http）交给它们终止 TLS 就好。
+
+```bash
+# 直接跑 HTTPS（PEM 证书）
+SSL_CERT=/data/certs/fullchain.pem SSL_KEY=/data/certs/privkey.pem HTTPS_REDIRECT_PORT=80 npm start
+
+# 或者用 Windows / 群晖导出的 .pfx
+SSL_PFX=/data/certs/site.pfx SSL_PFX_PASSPHRASE=你的口令 npm start
+```
+
+启动横幅会打印 `协议 HTTPS（已加载证书）` 和对应的访问地址；只填了 `SSL_CERT` / `SSL_KEY` 其中之一时会在启动阶段直接报错并说明原因，不会静默降级成 http。
+
 完整示例见仓库根目录 [`nginx.conf.example`](../nginx.conf.example)（含 HTTP→HTTPS 跳转、Let's Encrypt、gzip、上传体积、**SSE 免缓冲**）。
 
 关键只有两点：
@@ -373,6 +401,10 @@ cp server/data/config.json ~/config-$(date +%F).json
 | 现象 | 原因与处理 |
 |---|---|
 | 启动即退出，日志说数据目录不可写 | `DATA_DIR` 指向只读路径。改到可写目录或给容器挂卷 |
+| **容器起来了，但保存配置 / 上传都失败** | 绑定挂载的 `./data` 在宿主机上属于 root，而容器内以 `app` 运行。v2.7.0 起容器入口会**先修正属主再降权**，正常情况已自动解决；若用 NFS（`root_squash`）等无法 chown 的场景，在宿主机执行 `chown -R 1000:1000 ./data`，或改用命名卷 |
+| **`docker build` 卡在装依赖 / 拉包失败** | 换镜像源重建：`docker build --build-arg NPM_REGISTRY=https://registry.npmmirror.com/ -t genshin-hub .` |
+| `docker build` 报找不到 `server/package-lock.json` | 该文件必须随仓库提供（已入库）。若你的检出里没有，先 `npm --prefix server install --package-lock-only` 生成再构建 |
+| **想在容器里直接用 https** | 把证书挂进 `/data/certs`（或任意路径），设 `SSL_CERT` / `SSL_KEY` 或 `SSL_PFX`；需要 http 跳转再加 `HTTPS_REDIRECT_PORT=80` 并映射该端口 |
 | **部署了新版本，页面却还是旧的** | 前端无构建、文件名不带指纹，所以 js/css 已改为 `no-cache` + ETag（普通刷新即最新）。若你前面还挂了 CDN，请让 CDN 尊重 `Cache-Control`/`ETag`，或刷新 CDN 缓存 |
 | **改了后端代码没生效** | `npm start` 不监听文件，需要重启；开发时用 `npm run dev`（`node --watch` 自动重启） |
 | 上传字体后画廊里选不到 | v2.6.1 起上传即生效（前端会重新注入 `@font-face`）；若仍是旧版，刷新一次页面即可 |

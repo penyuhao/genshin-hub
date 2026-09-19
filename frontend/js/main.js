@@ -282,6 +282,14 @@ function updateHomeStatus(snapshot) {
       snapshot.source === 'live' ? ' · 实时数据' : snapshot.source === 'mock' ? ' · 演示数据' : '',
       snapshot.stale ? ' · 数据可能过期' : '')
   );
+
+  // 数字滚动：只在数值**变化**时滚一次，避免每次 SSE 推送都重新跳一遍
+  const counts = [total, up, down, pending + maintenance];
+  qsa('#homeStatusCard .stat-value').forEach((node, index) => {
+    if (state.lastStatusCounts?.[index] !== counts[index]) animateCount(node, 700);
+  });
+  state.lastStatusCounts = counts;
+  state.scrollProgress?.(); // 内容高度变了，进度条基数跟着更新
 }
 
 /** 快捷入口（保留外链卡片，不含任何资讯内容） */
@@ -657,6 +665,64 @@ function renderGallery(config) {
 }
 
 /* ============================================================
+   动效小工具：滚动进度条 + 数字滚动
+   ============================================================ */
+
+/**
+ * 顶部滚动进度条。
+ * 画廊是**内层**滚动容器，所以进度要把"画廊内部进度"和"页面进度"加在一起算，
+ * 否则在画廊里翻 11 屏时进度条纹丝不动。
+ */
+function setupScrollProgress() {
+  const bar = qs('#scrollProgress');
+  if (!bar) return;
+  const galleryEl = qs('#gallery');
+  let ticking = false;
+
+  const update = () => {
+    ticking = false;
+    const inner = galleryEl ? galleryEl.scrollTop : 0;
+    const innerMax = galleryEl ? Math.max(0, galleryEl.scrollHeight - galleryEl.clientHeight) : 0;
+    const page = window.scrollY || window.pageYOffset || 0;
+    const pageMax = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const total = innerMax + pageMax;
+    const progress = total > 0 ? Math.min(1, Math.max(0, (inner + page) / total)) : 0;
+    bar.style.setProperty('--progress', progress.toFixed(4));
+  };
+
+  const onScroll = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(update);
+  };
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+  galleryEl?.addEventListener('scroll', onScroll, { passive: true });
+  update();
+
+  state.scrollProgress = update; // 渲染后（内容变高）可以手动刷新一次
+}
+
+/** 数字滚动：15 → 0…15 涨上去，其余文字保持不变（尊重"减少动态效果"） */
+function animateCount(node, duration = 700) {
+  if (!node || prefersReducedMotion()) return;
+  const template = String(node.textContent || '');
+  const target = Number(template.replace(/[^\d.-]/g, ''));
+  if (!Number.isFinite(target) || target <= 1) return;
+
+  const started = performance.now();
+  const tick = (now) => {
+    const p = Math.min(1, (now - started) / duration);
+    const eased = 1 - (1 - p) ** 3;
+    node.textContent = template.replace(/\d+/, String(Math.round(target * eased)));
+    if (p < 1) requestAnimationFrame(tick);
+    else node.textContent = template;
+  };
+  requestAnimationFrame(tick);
+}
+
+/* ============================================================
    配置同步（后台保存 / 跨标签页）
    ============================================================ */
 /** 从服务端重新拉配置并整站重渲染（字体清单也一起刷新） */
@@ -728,6 +794,7 @@ async function boot() {
 
     // 6) 交互骨架
     setupMobileMenu();
+    setupScrollProgress();
 
     // 7) 先注册视图监听，再初始化路由（保证首屏也能收到 view 回调）
     onViewChange((view) => {

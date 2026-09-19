@@ -675,6 +675,85 @@ p { margin: 0; }
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8);
 }
 
+/* ---- 特效 7：逐字波浪（字像浮在水面上，按字序错开）----
+   逐字延迟由 JS 写在行内（每字 +60ms），波浪因此会"走"起来 */
+.gallery-slide.effect-wave .slide-title {
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.75),
+    0 10px 38px rgba(0, 0, 0, 0.55),
+    0 0 26px rgba(127, 216, 216, 0.22);
+}
+
+.gallery-slide.effect-wave .slide-title .char {
+  animation:
+    charRise 0.78s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+    charWave 3.4s ease-in-out infinite;
+}
+
+/* ---- 特效 8：故障风（赛博失真：青/粉两片错位闪烁）---- */
+.gallery-slide.effect-glitch .slide-title {
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85);
+}
+
+.gallery-slide.effect-glitch .slide-title::before,
+.gallery-slide.effect-glitch .slide-title::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.55;
+  mix-blend-mode: screen;
+}
+
+.gallery-slide.effect-glitch .slide-title::before {
+  color: #ff5f7e;
+  animation: glitchShiftA 3.8s steps(2, end) infinite;
+}
+
+.gallery-slide.effect-glitch .slide-title::after {
+  color: #7fd8d8;
+  animation: glitchShiftB 3.3s steps(2, end) infinite;
+}
+
+/* ---- 特效 9：极光（青→金→紫缓慢流动，整体色相轻轻呼吸）---- */
+.gallery-slide.effect-aurora .slide-title {
+  filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.7));
+  animation: auroraHue 13s linear infinite;
+}
+
+.gallery-slide.effect-aurora .slide-title .char {
+  background-image: linear-gradient(120deg, #7fd8d8 0%, #a8ffd0 28%, #e8c877 58%, #c9a6ff 100%);
+  background-size: 320% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation:
+    charRise 0.78s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+    auroraFlow 15s ease-in-out infinite;
+}
+
+/* ============================================================
+   全局滚动进度条（顶部一条细彩线）
+   数值由 JS 写进 --progress（画廊内部进度 + 页面进度一起算）
+   ============================================================ */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  z-index: 60;
+  pointer-events: none;
+  transform: scaleX(var(--progress, 0));
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, var(--cyan), var(--gold) 55%, #ff9ec4);
+  box-shadow: 0 0 12px rgba(232, 200, 119, 0.5);
+  opacity: 0.92;
+}
+
 .slide-subtitle {
   font-size: clamp(14px, 2.4vw, 26px);
   line-height: 1.35;   /* 收紧行盒，避免架空文字与中文标题间距忽大忽小 */
@@ -968,6 +1047,30 @@ body:not([data-view='home']) .scroll-hint {
   border-color: rgba(232, 200, 119, 0.4);
   background: rgba(232, 200, 119, 0.08);
 }
+
+/* ---------- 悬停时一道柔光扫过卡片（纯 CSS，不占 JS）----------
+   卡片本身已经有"抬起 + 描边提亮"，这里再加一道横向光带，手感更活 */
+.download-card::after,
+.index-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(105deg, transparent 36%, rgba(255, 253, 245, 0.16) 50%, transparent 64%);
+  background-size: 260% 100%;
+  background-position: 140% 0;
+}
+
+.download-card:hover::after,
+.index-card:hover::after {
+  opacity: 1;
+  animation: cardShine 1.1s ease-out;
+}
+
+/* index-card 原本没有定位，补上以免光带跑到别处 */
+.index-card { position: relative; overflow: hidden; }
 
 .index-no {
   flex: 0 0 auto;

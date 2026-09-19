@@ -25,8 +25,19 @@ services:
       # JWT_SECRET: ''
       # ADMIN_USERNAME: admin
       # ADMIN_PASSWORD: ''
+      # 想直接用 https（不装 Nginx）就填证书；PEM 或 .pfx 都行
+      # SSL_CERT: /data/certs/fullchain.pem
+      # SSL_KEY: /data/certs/privkey.pem
+      # SSL_PFX: /data/certs/site.pfx
+      # SSL_PFX_PASSPHRASE: ''
+      # HTTPS_REDIRECT_PORT: '80'
     volumes:
+      # 绑定挂载：容器启动时会先修正属主再降权运行（见 docker-entrypoint.sh）
+      # 若宿主机上权限受限（NFS root_squash 等），改用手动 chown：
+      #   chown -R 1000:1000 ./data
       - ./data:/data
+      # - ./certs:/data/certs:ro   # 证书放这里，配合上面的 SSL_* 使用
+      # - genshin-hub-data:/data   # 或者用命名卷（免权限烦恼）
       # - ./server/.env:/app/server/.env:ro   # 想复用 server/.env 时启用
     healthcheck:
       test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -39,3 +50,7 @@ services:
       options:
         max-size: 10m
         max-file: '3'
+
+# 用命名卷（想免掉绑定挂载的权限问题时，把上面的 ./data:/data 换成下面这两行）
+# volumes:
+#   genshin-hub-data:

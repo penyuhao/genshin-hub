@@ -95,7 +95,10 @@ try {
 }
 
 const health = await req('/health');
-check('CSP 含 default-src \'self\'', (health.headers.get('content-security-policy') || '').includes("default-src 'self'"));
+const cspHeader = health.headers.get('content-security-policy') || '';
+check('CSP 含 default-src \'self\'', cspHeader.includes("default-src 'self'"));
+check('CSP 的图片/媒体允许 http:（自建 http 站点也能用外链图）',
+  /img-src[^;]*http:/.test(cspHeader) && /media-src[^;]*http:/.test(cspHeader), cspHeader.slice(0, 140));
 check('X-Frame-Options = DENY', health.headers.get('x-frame-options') === 'DENY');
 check('X-Content-Type-Options = nosniff', health.headers.get('x-content-type-options') === 'nosniff');
 

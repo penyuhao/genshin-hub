@@ -233,7 +233,8 @@ async function main() {
   const savedCards = (await jsonReq('/api/config')).json?.download?.cards || [];
   check('裸域名自动补成 https://', savedCards[0]?.url === 'https://ys.mihoyo.com', savedCards[0]?.url);
   check('带路径的裸域名同样补全', savedCards[1]?.url === 'https://www.yuanshen.com/cloud', savedCards[1]?.url);
-  check('http:// 自动升级为 https://', savedCards[2]?.url === 'https://enka.network/', savedCards[2]?.url);
+  check('http:// 原样保留（内网 / NAS 上只提供 http 的服务很常见）',
+    savedCards[2]?.url === 'http://enka.network/', savedCards[2]?.url);
   check('站内路径原样保留', savedCards[3]?.url === '/download', savedCards[3]?.url);
   check('留空的卡片仍然允许（占位用）', savedCards[4]?.url === '', JSON.stringify(savedCards[4]?.url));
 

@@ -40,8 +40,7 @@ function normalizeUrlInput(value) {
   const raw = String(value ?? '').trim();
   if (!raw || raw === '#' || raw.startsWith('/')) return value;
   if (/^(?:javascript|data|vbscript|file|blob|about|chrome|view-source):/i.test(raw)) return value;
-  if (/^http:\/\//i.test(raw)) return `https://${raw.slice('http://'.length)}`;
-  if (/^https:\/\//i.test(raw)) return raw;
+  if (/^https?:\/\//i.test(raw)) return raw; // http 与 https 都保留（内网服务常用 http）
   if (raw.startsWith('//')) return `https:${raw}`;
   if (/^[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+(?::\d{1,5})?(?:[/?#]\S*)?$/i.test(raw)) {
     return `https://${raw}`;
@@ -110,12 +109,15 @@ const SECTIONS = [
             label: '标题特效',
             type: 'select',
             options: [
-              { value: 'shine', label: '光幕扫过（默认）' },
+              { value: 'shine', label: '光幕扫过（柔光飘过，默认）' },
               { value: 'gradient', label: '渐变填充（流动）' },
               { value: 'neon', label: '霓虹发光（呼吸）' },
               { value: 'outline', label: '描边空心' },
               { value: 'offset', label: '双层错位（印刷感）' },
               { value: 'plain', label: '纯色（最干净）' },
+              { value: 'wave', label: '逐字波浪（字在水面上起伏）' },
+              { value: 'glitch', label: '故障风（赛博失真闪烁）' },
+              { value: 'aurora', label: '极光（青→金→紫流动）' },
             ],
           },
           {

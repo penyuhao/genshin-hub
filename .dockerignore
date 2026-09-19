@@ -3,12 +3,17 @@ node_modules
 .npm-cache
 .git
 .gitignore
+.github
+.local
 server/.env
 server/data/config.json
 server/data/backups
 server/logs
 frontend/images/uploads/*
 frontend/fonts/uploads/*
+HoYo-Glyphs-Release
+docs
 tests
 *.md
+*.log
 .tmp-*
