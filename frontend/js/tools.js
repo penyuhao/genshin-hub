@@ -198,10 +198,30 @@ export class ToolsPanel {
         }
       } else {
         if (this.emptyEl) this.emptyEl.hidden = true;
+
+        // 按 Kuma 状态页的分组显示（顺序也沿用 Kuma 里排好的顺序）：
+        // 后端就是按状态页 publicGroupList 的顺序输出的，这里只负责"分块 + 加标题"。
+        const groups = new Map();
         for (const monitor of monitors) {
-          const card = this.buildMonitorCard(monitor);
-          if (!previous.has(String(monitor.id))) card.classList.add('is-new');
-          this.gridEl.appendChild(card);
+          const name = String(monitor.group || '').trim();
+          if (!groups.has(name)) groups.set(name, []);
+          groups.get(name).push(monitor);
+        }
+        const hasGroups = [...groups.keys()].some((name) => name);
+
+        for (const [groupName, list] of groups) {
+          if (hasGroups) {
+            this.gridEl.appendChild(
+              el('div', { class: 'monitor-group' },
+                el('h3', { class: 'monitor-group-title', text: groupName || '未分组' }),
+                el('span', { class: 'monitor-group-count', text: `${list.length} 项` }))
+            );
+          }
+          for (const monitor of list) {
+            const card = this.buildMonitorCard(monitor);
+            if (!previous.has(String(monitor.id))) card.classList.add('is-new');
+            this.gridEl.appendChild(card);
+          }
         }
       }
     }

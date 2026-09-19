@@ -1474,6 +1474,21 @@ body:not([data-view='home']) .scroll-hint {
 .monitor-card[data-status='maintenance'] { border-left: 3px solid var(--cyan); }
 .monitor-card[data-status='unknown'] { border-left: 3px solid var(--text-muted); }
 
+/* 监控分组标题：沿用 Kuma 状态页的分组名与顺序，横跨整行 */
+.monitor-group {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.monitor-grid > .monitor-group:first-child { margin-top: 0; }
+.monitor-group-title { font-size: 15px; color: var(--gold); letter-spacing: 0.04em; }
+.monitor-group-count { font-size: 12px; color: var(--text-muted); }
+
 .monitor-card:hover { border-color: rgba(232, 200, 119, 0.32); }
 .monitor-card.is-new { animation: cardPop 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
 

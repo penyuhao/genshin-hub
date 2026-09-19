@@ -655,6 +655,20 @@ async function main() {
   check('监控卡片状态色块属性正确', ['up', 'down', 'pending', 'maintenance', 'unknown'].includes(
     q('#monitorGrid .monitor-card')?.dataset.status), q('#monitorGrid .monitor-card')?.dataset.status);
 
+  // Kuma 状态页的分组：保留分组名与顺序（排序在 Kuma 里排，这里只负责照原样分块显示）
+  const groupTitles = qa('#monitorGrid .monitor-group-title').map((t) => t.textContent).filter(Boolean);
+  const groupedMonitorCount = (apiSnapshot?.monitors || []).filter((m) => m.group).length;
+  check('监控面板按 Kuma 的分组分块显示',
+    groupedMonitorCount === 0 || groupTitles.length >= 1,
+    `接口里带分组的监控 ${groupedMonitorCount} 个 / 页面分组标题 ${JSON.stringify(groupTitles)}`);
+  if (groupedMonitorCount > 0) {
+    check('分组标题就是 Kuma 里的分组名，且顺序一致',
+      groupTitles.join(',') === [...new Set((apiSnapshot?.monitors || []).filter((m) => m.group).map((m) => m.group))].join(','),
+      `页面=${groupTitles.join(',')} 接口=${[...new Set((apiSnapshot?.monitors || []).filter((m) => m.group).map((m) => m.group))].join(',')}`);
+    check('分组标题横跨整行（不会被挤进一格卡片里）',
+      /\.monitor-group\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/.test(mainCss));
+  }
+
   console.log('\n[阶段3.6] 管理后台');
   window.location.hash = '#admin';
   window.dispatchEvent(new window.Event('hashchange'));
