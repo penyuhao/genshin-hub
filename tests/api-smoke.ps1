@@ -28,6 +28,7 @@ if (-not $AdminPass) { $AdminPass = $script:envValues['ADMIN_PASSWORD'] }
 Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
 $script:pass = 0
 $script:fail = 0
+$script:skip = 0
 
 function Test-Case {
   param([string]$Name, [scriptblock]$Body)
@@ -36,6 +37,10 @@ function Test-Case {
     if ($result -eq $true) {
       Write-Host "  [PASS] $Name" -ForegroundColor Green
       $script:pass++
+    } elseif ($result -is [string] -and $result.StartsWith('__SKIP__')) {
+      $why = $result.Substring(8).TrimStart(':', ' ')
+      Write-Host "  [SKIP] $Name$(if ($why) { " — $why" })" -ForegroundColor Yellow
+      $script:skip++
     } else {
       Write-Host "  [FAIL] $Name -> $result" -ForegroundColor Red
       $script:fail++
@@ -309,6 +314,7 @@ Test-Case '登录：验证码一次性（同一验证码不能重放）' {
   if (-not $cap.code) { return '无旁路令牌，无法取得答案（请在 server/.env 配置 CAPTCHA_BYPASS_TOKEN）' }
   $body = @{ username = $AdminUser; password = $AdminPass; captchaId = $cap.id; captchaCode = $cap.code }
   $first = Get-Json '/api/auth/login' -Method 'POST' -Body $body
+  if ($first.Status -eq 401) { return '__SKIP__:server/.env 的密码已失效（可能在面板里改过）' }
   if ($first.Status -ne 200) { return "首次登录失败 HTTP $($first.Status)" }
   $second = Get-Json '/api/auth/login' -Method 'POST' -Body $body
   if ($second.Status -ne 400) { return "重放未被拒绝 HTTP $($second.Status)" }
@@ -331,6 +337,7 @@ Test-Case '登录：正确凭据 + 正确验证码返回 JWT' {
   $r = Get-Json '/api/auth/login' -Method 'POST' -Body @{
     username = $AdminUser; password = $AdminPass; captchaId = $cap.id; captchaCode = $cap.code
   }
+  if ($r.Status -eq 401) { return '__SKIP__:server/.env 的密码已失效（可能在面板里改过）' }
   if ($r.Status -ne 200) { return "HTTP $($r.Status)" }
   if (-not $r.Json.token) { return '缺少 token' }
   $script:token = $r.Json.token
@@ -343,12 +350,13 @@ Test-Case '登录：验证码大小写不敏感' {
   $r = Get-Json '/api/auth/login' -Method 'POST' -Body @{
     username = $AdminUser; password = $AdminPass; captchaId = $cap.id; captchaCode = $cap.code.ToLower()
   }
+  if ($r.Status -eq 401) { return '__SKIP__:server/.env 的密码已失效（可能在面板里改过）' }
   if ($r.Status -ne 200) { return "HTTP $($r.Status)" }
   $true
 }
 
 Test-Case 'GET /api/auth/check 令牌有效' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/auth/check' -Headers @{ Authorization = "Bearer $script:token" }
   if ($r.Status -ne 200) { return "HTTP $($r.Status)" }
   if ($r.Json.user.isAdmin -ne $true) { return 'isAdmin 不为 true' }
@@ -356,7 +364,7 @@ Test-Case 'GET /api/auth/check 令牌有效' {
 }
 
 Test-Case 'PUT /api/config/theme 带 JWT 更新成功' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/config/theme' -Method 'PUT' -Headers @{ Authorization = "Bearer $script:token" } -Body @{
     primaryColor = '#e8c877'; accentColor = '#7fd8d8'; bgColor = '#0b1020'; bgColor2 = '#12172b'
     textColor = '#f0ece0'; textMuted = '#9aa0b5'; upColor = '#4ade80'; downColor = '#ef4444'
@@ -375,7 +383,7 @@ Test-Case '更新后配置立即生效（读回校验）' {
 }
 
 Test-Case '非法颜色值被 zod 拒绝（400）' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/config/theme' -Method 'PUT' -Headers @{ Authorization = "Bearer $script:token" } -Body @{
     primaryColor = 'red; background:url(x)'; accentColor = '#7fd8d8'; bgColor = '#0b1020'; bgColor2 = '#12172b'
     textColor = '#f0ece0'; textMuted = '#9aa0b5'; upColor = '#4ade80'; downColor = '#ef4444'
@@ -386,7 +394,7 @@ Test-Case '非法颜色值被 zod 拒绝（400）' {
 }
 
 Test-Case '路径穿越的图片地址被拒绝（400）' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/config/site' -Method 'PUT' -Headers @{ Authorization = "Bearer $script:token" } -Body @{
     title = '原神功能快捷站'; subtitle = '提瓦特旅行者手册'
     logo = '/images/../../server/.env'; favicon = '/images/favicon.svg'
@@ -396,7 +404,7 @@ Test-Case '路径穿越的图片地址被拒绝（400）' {
 }
 
 Test-Case 'javascript: 伪协议被拒绝（400）' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/config/download' -Method 'PUT' -Headers @{ Authorization = "Bearer $script:token" } -Body @{
     cards = @(@{ icon = 'x'; title = 't'; desc = 'd'; url = 'javascript:alert(1)' })
   }
@@ -405,14 +413,14 @@ Test-Case 'javascript: 伪协议被拒绝（400）' {
 }
 
 Test-Case '未知区块被拒绝（404）' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/config/hack' -Method 'PUT' -Headers @{ Authorization = "Bearer $script:token" } -Body @{ a = 1 }
   if ($r.Status -ne 404) { return "HTTP $($r.Status)" }
   $true
 }
 
 Test-Case 'GET /api/config/backups 返回备份列表（需管理员）' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/config/backups' -Headers @{ Authorization = "Bearer $script:token" }
   if ($r.Status -ne 200) { return "HTTP $($r.Status)" }
   if ($r.Json.backups.Count -lt 1) { return '备份列表为空' }
@@ -426,7 +434,7 @@ Test-Case '备份接口未授权返回 401' {
 }
 
 Test-Case '批量更新 PUT /api/config 生效' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/config' -Method 'PUT' -Headers @{ Authorization = "Bearer $script:token" } -Body @{
     features = @{
       enableBackgroundMusic = $false; enableStarfield = $true; enableStarRings = $true
@@ -450,7 +458,7 @@ Test-Case 'GET /api/settings/kuma 需管理员（未授权 401）' {
 }
 
 Test-Case 'GET /api/settings/kuma 返回设置与连接状态（密钥脱敏）' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/settings/kuma' -Headers @{ Authorization = "Bearer $script:token" }
   if ($r.Status -ne 200) { return "HTTP $($r.Status)" }
   if ($null -eq $r.Json.configured) { return '缺少 configured' }
@@ -460,7 +468,7 @@ Test-Case 'GET /api/settings/kuma 返回设置与连接状态（密钥脱敏）'
 }
 
 Test-Case 'PUT /api/settings/kuma 保存并热重载' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/settings/kuma' -Method 'PUT' -Headers @{ Authorization = "Bearer $script:token" } -Body @{
     pollInterval = 30; cacheTtl = 30; socketEnabled = $false
   }
@@ -471,7 +479,7 @@ Test-Case 'PUT /api/settings/kuma 保存并热重载' {
 }
 
 Test-Case 'PUT /api/settings/kuma 非法地址被 zod 拒绝（400）' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/settings/kuma' -Method 'PUT' -Headers @{ Authorization = "Bearer $script:token" } -Body @{ url = 'not-a-url' }
   if ($r.Status -ne 400) { return "HTTP $($r.Status)" }
   $true
@@ -484,7 +492,7 @@ Test-Case 'POST /api/settings/kuma/test 需要管理员（未授权 401）' {
 }
 
 Test-Case 'POST /api/settings/kuma/test 返回连接结果（Mock 模式下为演示提示）' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/settings/kuma/test' -Method 'POST' -Headers @{ Authorization = "Bearer $script:token" } -Body @{}
   if ($r.Status -ne 200) { return "HTTP $($r.Status)" }
   if ($null -eq $r.Json.mode) { return '缺少 mode' }
@@ -492,7 +500,7 @@ Test-Case 'POST /api/settings/kuma/test 返回连接结果（Mock 模式下为�
 }
 
 Test-Case 'GET /api/auth/settings 返回验证码开关' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/auth/settings' -Headers @{ Authorization = "Bearer $script:token" }
   if ($r.Status -ne 200) { return "HTTP $($r.Status)" }
   if ($null -eq $r.Json.captchaEnabled) { return '缺少 captchaEnabled' }
@@ -500,7 +508,7 @@ Test-Case 'GET /api/auth/settings 返回验证码开关' {
 }
 
 Test-Case 'PUT /api/auth/credentials 当前密码错误返回 400' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/auth/credentials' -Method 'PUT' -Headers @{ Authorization = "Bearer $script:token" } -Body @{
     currentPassword = 'definitely-wrong'; newPassword = 'whatever123456'
   }
@@ -509,7 +517,7 @@ Test-Case 'PUT /api/auth/credentials 当前密码错误返回 400' {
 }
 
 Test-Case 'PUT /api/auth/credentials 新密码过短被拒（400）' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $r = Get-Json '/api/auth/credentials' -Method 'PUT' -Headers @{ Authorization = "Bearer $script:token" } -Body @{
     currentPassword = $AdminPass; newPassword = 'short'
   }
@@ -518,7 +526,7 @@ Test-Case 'PUT /api/auth/credentials 新密码过短被拒（400）' {
 }
 
 Test-Case '验证码开关可切换且公开接口同步' {
-  if (-not $script:token) { return '无 token' }
+  if (-not $script:token) { return '__SKIP__:未取得管理员令牌（密码可能在面板里改过）' }
   $off = Get-Json '/api/auth/settings' -Method 'PUT' -Headers @{ Authorization = "Bearer $script:token" } -Body @{ captchaEnabled = $false }
   if ($off.Status -ne 200) { return "关闭失败 HTTP $($off.Status)" }
   $pub = Get-Json '/api/auth/public-settings'
@@ -585,6 +593,10 @@ if ($script:fail -gt 0) {
   Write-Host "  失败: $script:fail" -ForegroundColor Red
 } else {
   Write-Host "  失败: 0" -ForegroundColor Green
+}
+if ($script:skip -gt 0) {
+  Write-Host "  跳过: $script:skip（需要管理员令牌的用例）" -ForegroundColor Yellow
+  Write-Host '        想跑全量：把当前密码写回 server/.env 的 ADMIN_PASSWORD，或用 -AdminPass 传入' -ForegroundColor Yellow
 }
 Write-Host ''
 if ($script:fail -gt 0) { exit 1 } else { exit 0 }

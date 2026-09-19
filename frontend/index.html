@@ -59,19 +59,21 @@
     </div>
   </header>
 
+  <!-- 视口级 UI（必须放在视图外面：视图带 transform 动画会成为 fixed 定位的包含块） -->
+  <div class="gallery-dots" id="galleryDots" role="tablist" aria-label="画廊导航"></div>
+  <button class="scroll-hint" id="scrollHint" type="button" aria-label="向下浏览">
+    <span class="scroll-hint-arrow">↓</span>
+    <span class="scroll-hint-text">向下浏览</span>
+  </button>
+
   <main id="app">
     <!-- 视图 1：首页 -->
     <section id="view-home" class="view is-active" data-view="home">
       <div class="gallery-stage">
         <div class="gallery" id="gallery" tabindex="-1"></div>
-        <div class="gallery-dots" id="galleryDots" role="tablist" aria-label="画廊切换"></div>
-        <button class="scroll-hint" id="scrollHint" type="button" aria-label="查看服务状态">
-          <span class="scroll-hint-arrow">↓</span>
-          <span class="scroll-hint-text">服务状态</span>
-        </button>
       </div>
 
-      <!-- 画廊下方内容（下滑 / 点击 ↓ 的直接落点） -->
+      <!-- 画廊下方内容（原生滚动一直往下即可） -->
       <div class="home-content" id="homeContent">
         <section class="home-block" id="homeStatus" aria-label="服务状态速览"></section>
         <section class="home-block" id="homeLinks" aria-label="快捷入口"></section>

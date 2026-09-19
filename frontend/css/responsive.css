@@ -13,6 +13,9 @@
   .monitor-grid { grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); }
 
   .admin-layout { grid-template-columns: 196px minmax(0, 1fr); }
+
+  /* 平板及以下隐藏右侧圆点导航：原生滚动即可，避免压住内容 */
+  .gallery-dots { display: none; }
 }
 
 /* ---------- 手机：< 768px ---------- */
@@ -70,35 +73,69 @@
 
   .nav-link::after { bottom: 14px; }
 
-  /* 画廊：保持「一屏一屏切换」的机制，仅调整内容与月亮位置 */
-  .gallery-stage { height: 100vh; height: 100svh; }
+  /* 画廊：纵向堆叠 + 原生滚动，手机上就是一屏一屏往下滑 */
+  .gallery-slide { min-height: 100vh; min-height: 100svh; }
 
-  .slide-content { padding: calc(var(--topbar-h) + 130px) 22px 76px; text-align: center; }
-  .slide-desc { margin: 0 auto; }
-  .slide-title { letter-spacing: 0.04em; }
+  .slide-content {
+    padding: calc(var(--topbar-h) + 36px) 22px clamp(56px, 12vh, 96px);
+    text-align: center;
+  }
+
+  /* 首屏要给月亮留位置，其余屏内容垂直居中即可 */
+  .gallery-slide:first-child .slide-content {
+    padding-top: calc(var(--topbar-h) + 130px);
+  }
+
+  .slide-desc { margin: 0 auto; max-width: 32ch; }
+  .slide-title {
+    letter-spacing: 0.04em;
+    font-size: clamp(40px, 12.5vw, 66px);
+    overflow-wrap: anywhere;   /* 长标题不撑破屏幕 */
+    max-width: 100%;
+  }
   .slide-subtitle { letter-spacing: 0.3em; text-indent: 0.3em; }
+  .slide-cta { margin-top: 24px; }
+  .slide-cta .btn { width: 100%; max-width: 320px; }
 
+  /* 月亮：只出现在首屏，居中放在标题上方 */
   .moon {
     position: fixed;
-    top: calc(var(--topbar-h) + 26px);
+    top: calc(var(--topbar-h) + 22px);
     right: 50%;
-    width: 104px;
-    height: 104px;
-    transform: translate3d(50%, 18px, 0) scale(0.9);
+    width: 100px;
+    height: 100px;
+    transform: translate3d(50%, 16px, 0) scale(0.9);
   }
 
   .moon.is-visible { transform: translate3d(50%, 0, 0) scale(1); }
 
-  .gallery-dots { bottom: 18px; }
-  .scroll-hint { bottom: 40px; }
+  /* 手机上不显示右侧圆点导航（原生滚动即可），提示下移避免压住内容 */
+  .gallery-dots { display: none; }
+  .scroll-hint { bottom: 22px; }
 
   .home-content { padding: 40px 18px 68px; }
 
   /* 卡片与网格：一律单列 */
   .card-grid,
   .monitor-grid,
-  .home-grid,
-  .status-metrics { grid-template-columns: 1fr; }
+  .home-grid { grid-template-columns: 1fr; }
+
+  /* 服务状态速览：手机上排成 2×2，比竖着堆 4 行更紧凑好看 */
+  .status-overview { padding: 18px 16px; }
+  .status-line { font-size: 17px; gap: 10px; }
+  .status-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 14px;
+    margin-top: 14px;
+    padding-top: 14px;
+  }
+  .status-metric .stat-value { font-size: 19px; }
+  .status-meta { font-size: 12.5px; line-height: 1.6; }
+
+  .home-block-head { gap: 10px; }
+  .home-block-head .mini-btn { margin-left: auto; }
+  .home-block-actions .btn { width: 100%; }
+  .home-block-title { font-size: 21px; }
 
   .download-card p { min-height: 0; }
 

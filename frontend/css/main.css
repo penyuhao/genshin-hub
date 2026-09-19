@@ -92,8 +92,10 @@ p { margin: 0; }
     linear-gradient(180deg, #04060f 0%, var(--bg) 42%, #0d1226 100%);
 }
 
+/* 极光层留出余量：视差位移时不会露出发白边缘 */
 .layer-aurora {
   z-index: 1;
+  inset: -180px -20px;
   opacity: 0.5;
   background:
     linear-gradient(102deg, transparent 30%, rgba(127, 216, 216, 0.05) 45%, transparent 60%),
@@ -340,33 +342,26 @@ p { margin: 0; }
   pointer-events: none;
 }
 
-/* ---------- 画廊 ---------- */
-/* 舞台容器：为圆点导航与滚动提示提供定位参照，高度恒为一屏 */
+/* ---------- 画廊（纵向堆叠 · 原生滚动）----------
+   每一屏都是一屏高的普通区块，页面自然向下滚动：
+   不劫持滚轮、无"界面切换"感，刷新后滚动位置由浏览器正确恢复。 */
 .gallery-stage {
   position: relative;
-  height: 100vh;
-  height: 100svh;
-  overflow: hidden;
 }
 
 .gallery {
   position: relative;
-  height: 100%;
-  overflow: hidden;
 }
 
 .gallery-slide {
-  position: absolute;
-  inset: 0;
+  position: relative;
   display: grid;
   align-items: center;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.9s ease, visibility 0.9s ease;
-  will-change: opacity;
+  min-height: 100vh;
+  min-height: 100svh;      /* 支持 svh 的浏览器用动态视口高度，避免手机地址栏跳动 */
+  overflow: hidden;        /* 裁掉背景 Ken Burns 的溢出 */
+  isolation: isolate;      /* 让背景层与内容层的层叠上下文互相独立 */
 }
-
-.gallery-slide.is-active { opacity: 0.99; visibility: visible; }
 
 .slide-bg {
   position: absolute;
@@ -394,8 +389,7 @@ p { margin: 0; }
   z-index: 3;
   width: min(var(--container), 100%);
   margin: 0 auto;
-  padding: 0 clamp(20px, 5vw, 64px);
-  padding-top: var(--topbar-h);
+  padding: calc(var(--topbar-h) + 24px) clamp(20px, 5vw, 64px) clamp(72px, 12vh, 132px);
 }
 
 .slide-title {
@@ -459,40 +453,55 @@ p { margin: 0; }
   animation: metalShine 6.5s ease-in-out infinite;
 }
 
-/* 画廊控制点 */
+/* 画廊控制点：桌面端右侧固定竖排，点击平滑跳转到对应屏
+   （元素在 body 层级，不受视图 transform 影响，fixed 始终相对视口） */
 .gallery-dots {
-  position: absolute;
-  left: 50%;
-  bottom: 26px;
-  z-index: 12;
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  transform: translateX(-50%);
+  padding: 12px 9px;
+  border-radius: 999px;
+  background: rgba(9, 13, 26, 0.42);
+  border: 1px solid rgba(232, 200, 119, 0.16);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* 离开首页时隐藏视口级导航元素 */
+body:not([data-view='home']) .gallery-dots,
+body:not([data-view='home']) .scroll-hint {
+  display: none;
 }
 
 .gallery-dot {
-  width: 12px;
-  height: 12px;
-  min-width: 12px;
+  width: 11px;
+  height: 11px;
+  min-width: 11px;
   border-radius: 50%;
-  border: 1px solid rgba(232, 200, 119, 0.5);
+  border: 1px solid rgba(232, 200, 119, 0.55);
   background: transparent;
   transition: transform 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
 }
 
-.gallery-dot:hover { transform: scale(1.2); }
+.gallery-dot:hover { transform: scale(1.3); }
 
 .gallery-dot.is-active {
   background: var(--gold);
-  box-shadow: 0 0 14px rgba(232, 200, 119, 0.7);
-  transform: scale(1.15);
+  box-shadow: 0 0 14px rgba(232, 200, 119, 0.75);
+  transform: scale(1.25);
 }
 
+/* 「向下浏览」提示：固定在视口底部，仅首屏在视野内时出现 */
 .scroll-hint {
-  position: absolute;
+  position: fixed;
   left: 50%;
-  bottom: 46px;
-  z-index: 12;
+  bottom: 30px;
+  z-index: 30;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -505,10 +514,20 @@ p { margin: 0; }
   color: var(--gold);
   transform: translateX(-50%);
   border: 1px solid rgba(232, 200, 119, 0.3);
-  background: rgba(9, 13, 26, 0.35);
+  background: rgba(9, 13, 26, 0.42);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
   animation: hintBob 2.6s ease-in-out infinite;
+}
+
+.scroll-hint.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .scroll-hint-arrow { font-size: 17px; line-height: 1; }

@@ -19,6 +19,7 @@ const state = {
   admin: null,
   adminReady: false,
   lastStatus: null,
+  currentSlide: 0,
 };
 
 /* ============================================================
@@ -58,20 +59,6 @@ function renderNav(config) {
 function renderHomeContent(config) {
   renderHomeStatus(config);
   renderHomeLinks(config);
-
-  // 在内容区向上滚动 → 一步回到画廊
-  const content = qs('#homeContent');
-  if (content && !content.dataset.wheelBound) {
-    content.dataset.wheelBound = '1';
-    content.addEventListener('wheel', (event) => {
-      if (event.deltaY >= 0) return;
-      const top = content.getBoundingClientRect().top;
-      if (top >= -40) {
-        event.preventDefault();
-        scrollToGallery();
-      }
-    }, { passive: false });
-  }
 }
 
 /** 服务状态速览：首屏下方最实用的模块，也是画廊下滑的直接落点 */
@@ -206,15 +193,8 @@ function renderHomeLinks(config) {
 }
 
 /* ============================================================
-   滚动：画廊 ↔ 下方内容一步到位
+   滚动：回到画廊顶部
    ============================================================ */
-function scrollToHomeContent() {
-  const target = qs('#homeContent');
-  if (!target) return;
-  const top = target.getBoundingClientRect().top + window.scrollY - 14;
-  window.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
-}
-
 function scrollToGallery() {
   window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
 }
@@ -338,7 +318,9 @@ function updateMoonVisibility() {
   if (!moon) return;
   const enabled = state.config?.features?.enableMoon !== false;
   const onHome = document.body.dataset.view === 'home';
-  moon.classList.toggle('is-visible', enabled && onHome);
+  // 只有首页 + 首屏才显示月亮（滚动布局下月亮属于开场那一屏）
+  const onFirstSlide = (state.currentSlide ?? 0) === 0;
+  moon.classList.toggle('is-visible', enabled && onHome && onFirstSlide);
 }
 
 /* ============================================================
@@ -471,11 +453,15 @@ function renderGallery(config) {
     dots,
     scrollHint: qs('#scrollHint'),
     onCta: (view) => navigate(view),
-    // 最后一屏继续下滑 / 点击 ↓：一步跳到画廊下方内容
-    onExitDown: () => scrollToHomeContent(),
+    // 当前屏变化：月亮只在首屏出现
+    onSlideChange: (index) => {
+      state.currentSlide = index;
+      updateMoonVisibility();
+    },
   });
 
-  state.gallery.render(config.hero?.slides || [], { autoplay: config.hero?.autoplay || 0 });
+  // 纵向堆叠 + 原生滚动：不再劫持滚轮，也不再自动轮播
+  state.gallery.render(config.hero?.slides || []);
 }
 
 /* ============================================================

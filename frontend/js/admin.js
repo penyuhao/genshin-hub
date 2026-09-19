@@ -50,9 +50,8 @@ const SECTIONS = [
   {
     key: 'hero',
     label: '画廊管理',
-    desc: '首页画廊的每一屏：标题、副标题、背景图与字体',
+    desc: '首页画廊的每一屏：标题、副标题、背景图与字体（纵向堆叠，一屏一屏往下滚）',
     fields: [
-      { key: 'autoplay', label: '自动轮播间隔（毫秒，0 = 关闭）', type: 'number', min: 0, max: 30000 },
       {
         key: 'slides',
         label: '画廊屏',

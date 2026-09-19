@@ -1,33 +1,49 @@
-// js/gallery.js — 首页画廊：4 屏纵向滚动切换 + 逐字标题 + Ken Burns + 圆点导航
-import { el, clear, qsa, hasText, clamp, prefersReducedMotion } from './util.js';
+// js/gallery.js — 首页画廊：11 屏纵向堆叠，**原生滚动**（一条滚下来）
+//
+// 布局模型：每一屏都是 min-height:100svh 的普通区块，页面自然向下滚动。
+//   不再劫持滚轮、不再有"界面切换"感，刷新后滚动位置由浏览器正确恢复。
+//
+// 仍然保留的体验：
+//   • 逐字浮现标题（进入视口时触发）
+//   • Ken Burns 背景缓慢缩放（仅当前屏播放，省电）
+//   • 圆点导航（桌面端右侧固定竖排，点击平滑跳转）
+//   • 首屏「向下浏览」提示（滚过首屏自动隐藏）
+//   • 键盘 ↑/↓ 与 PageUp/PageDown 原生滚动
+import { el, clear, qsa, hasText, prefersReducedMotion } from './util.js';
 import { fontClassOf } from './fonts.js';
 
-const SWITCH_LOCK_MS = 850;
+/** 判定"当前屏"的可见比例阈值 */
+const ACTIVE_RATIO = 0.45;
 
 export class Gallery {
-  constructor({ container, dots, scrollHint, onCta, onExitDown }) {
+  constructor({ container, dots, scrollHint, onCta, onSlideChange }) {
     this.container = container;
     this.dotsContainer = dots;
     this.scrollHint = scrollHint;
     this.onCta = onCta;
-    this.onExitDown = onExitDown;
+    this.onSlideChange = onSlideChange;
 
     this.slides = [];
     this.slideEls = [];
-    this.currentIndex = 0;
-    this.locked = false;
-    this.autoplayTimer = null;
-    this.autoplayMs = 0;
+    this.dots = [];
+    this.currentIndex = -1;
     this.enabled = true;
+    this.observer = null;
+    this.ratios = new Map();
+    this.animatedIn = new Set();
     this.boundHandlers = [];
   }
 
-  /** 依据配置渲染所有屏 */
-  render(slides = [], { autoplay = 0 } = {}) {
+  /** 依据配置渲染所有屏（纵向堆叠） */
+  render(slides = []) {
     this.slides = Array.isArray(slides) ? slides.filter(Boolean) : [];
     clear(this.container);
     clear(this.dotsContainer);
     this.slideEls = [];
+    this.dots = [];
+    this.animatedIn.clear();
+    this.ratios.clear();
+    this.currentIndex = -1;
 
     if (!this.slides.length) {
       this.container.appendChild(
@@ -40,22 +56,39 @@ export class Gallery {
 
     this.slides.forEach((slide, index) => {
       const titleText = hasText(slide.title) ? slide.title : '';
-      const title = el('h1', {
-        class: `slide-title ${fontClassOf(slide.font)}`,
-        style: slide.textColor ? { color: slide.textColor } : {},
-        'data-text': titleText,
+      const slideEl = el('section', {
+        class: 'gallery-slide',
+        dataset: { index: String(index) },
+        'aria-label': hasText(titleText) ? titleText : `第 ${index + 1} 屏`,
       });
 
+      // 背景（自己铺满所属区块）
+      slideEl.appendChild(
+        el('div', {
+          class: 'slide-bg',
+          style: slide.bgImage
+            ? { backgroundImage: `url("${String(slide.bgImage).replace(/["()\\]/g, '')}")` }
+            : {},
+          'aria-hidden': 'true',
+        })
+      );
+
+      const content = el('div', { class: 'slide-content' });
+
       if (hasText(titleText)) {
+        const title = el('h1', {
+          class: `slide-title ${fontClassOf(slide.font)}`,
+          style: slide.textColor ? { color: slide.textColor } : {},
+          'data-text': titleText,
+        });
         const span = el('span', { class: 'title-text' });
         for (const char of Array.from(titleText)) {
           span.appendChild(el('span', { class: 'char', text: char }));
         }
         title.appendChild(span);
         title.appendChild(el('span', { class: 'title-shine', 'aria-hidden': 'true' }));
+        content.appendChild(title);
       }
-
-      const content = el('div', { class: 'slide-content' }, title);
 
       if (hasText(slide.subtitle)) {
         content.appendChild(
@@ -84,171 +117,90 @@ export class Gallery {
         );
       }
 
-      const slideEl = el('div', {
-        class: `gallery-slide${index === 0 ? ' is-active' : ''}`,
-        dataset: { index: String(index) },
-        'aria-hidden': index === 0 ? 'false' : 'true',
-      },
-        el('div', {
-          class: 'slide-bg',
-          style: slide.bgImage ? { backgroundImage: `url("${String(slide.bgImage).replace(/["()\\]/g, '')}")` } : {},
-          'aria-hidden': 'true',
-        }),
-        content
-      );
-
-      this.slideEls.push(slideEl);
+      slideEl.appendChild(content);
       this.container.appendChild(slideEl);
+      this.slideEls.push(slideEl);
 
+      // 圆点导航（桌面端右侧竖排）
       const dot = el('button', {
-        class: `gallery-dot${index === 0 ? ' is-active' : ''}`,
+        class: 'gallery-dot',
         type: 'button',
-        role: 'tab',
-        'aria-label': `第 ${index + 1} 屏${hasText(slide.title) ? `：${slide.title}` : ''}`,
-        'aria-selected': index === 0 ? 'true' : 'false',
+        'aria-label': `跳转到第 ${index + 1} 屏${hasText(titleText) ? `：${titleText}` : ''}`,
+        title: hasText(titleText) ? titleText : `第 ${index + 1} 屏`,
         onclick: () => this.goTo(index),
       });
       this.dotsContainer.appendChild(dot);
+      this.dots.push(dot);
     });
 
-    this.currentIndex = 0;
-    this.animateTitle(0);
-    this.bindInteractions();
-    this.setAutoplay(autoplay);
+    this.bindScrollHint();
+    this.setupObserver();
+    // 首屏先进入"已激活"状态，动画立刻播放
+    this.activate(0, { animate: true });
+  }
 
-    if (this.scrollHint) {
-      // ↓ 一键跳到画廊下方的服务状态区
-      const hintHandler = () => this.onExitDown?.();
-      this.scrollHint.addEventListener('click', hintHandler);
-      this.boundHandlers.push(() => this.scrollHint.removeEventListener('click', hintHandler));
+  /** 进入视口的观察器：决定当前屏、触发标题动画、控制提示与圆点 */
+  setupObserver() {
+    if (typeof IntersectionObserver === 'undefined') {
+      // 降级（含无 IntersectionObserver 的环境）：首屏激活，其余静态展示
+      this.activate(0, { animate: true, force: true });
+      this.scrollHint?.classList.add('is-visible');
+      return;
     }
-  }
 
-  /** 滚轮 / 触摸 / 键盘 */
-  bindInteractions() {
-    const wheelHandler = (event) => {
-      if (!this.enabled || this.slides.length < 2) return;
-      const delta = event.deltaY;
-      if (Math.abs(delta) < 3) return;
-
-      const dir = delta > 0 ? 1 : -1;
-      const nextIndex = this.currentIndex + dir;
-      const canSwitch = nextIndex >= 0 && nextIndex < this.slideEls.length;
-
-      if (!canSwitch) {
-        // 最后一屏继续下滑：一步跳到画廊下方内容（不再逐像素拖动页面）
-        if (dir > 0) {
-          event.preventDefault();
-          if (this.locked) return;
-          this.locked = true;
-          setTimeout(() => { this.locked = false; }, SWITCH_LOCK_MS);
-          this.onExitDown?.();
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const index = Number(entry.target.dataset.index);
+          this.ratios.set(index, entry.intersectionRatio);
+          if (entry.intersectionRatio < 0.08) this.animatedIn.delete(index);
         }
-        return; // 第一屏继续上滑：放行原生滚动
-      }
 
-      event.preventDefault();
-      if (this.locked) return;
-      this.goTo(nextIndex, { fromWheel: true });
-    };
-    this.container.addEventListener('wheel', wheelHandler, { passive: false });
-    this.boundHandlers.push(() => this.container.removeEventListener('wheel', wheelHandler));
-
-    // 触摸：仅在「可切换」方向拦截，边界处保留原生滚动
-    let startX = 0;
-    let startY = 0;
-    let swiping = false;
-
-    const touchStart = (event) => {
-      if (!this.enabled || this.slides.length < 2 || event.touches.length !== 1) return;
-      startX = event.touches[0].clientX;
-      startY = event.touches[0].clientY;
-      swiping = false;
-    };
-
-    const touchMove = (event) => {
-      if (!this.enabled || this.slides.length < 2 || event.touches.length !== 1) return;
-      const dx = event.touches[0].clientX - startX;
-      const dy = event.touches[0].clientY - startY;
-
-      if (!swiping) {
-        if (Math.abs(dy) < 12 || Math.abs(dy) < Math.abs(dx) * 1.2) return; // 交给原生滚动
-        const dir = dy < 0 ? 1 : -1;
-        const nextIndex = this.currentIndex + dir;
-        if (nextIndex < 0 || nextIndex >= this.slideEls.length) return; // 边界放行
-        swiping = true;
-      }
-      event.preventDefault();
-    };
-
-    const touchEnd = (event) => {
-      if (!swiping || !this.enabled) return;
-      const touch = event.changedTouches[0];
-      const dy = startY - touch.clientY;
-      if (Math.abs(dy) > 44) {
-        const dir = dy > 0 ? 1 : -1;
-        this.goTo(this.currentIndex + dir);
-      }
-      swiping = false;
-    };
-
-    this.container.addEventListener('touchstart', touchStart, { passive: true });
-    this.container.addEventListener('touchmove', touchMove, { passive: false });
-    this.container.addEventListener('touchend', touchEnd, { passive: true });
-    this.boundHandlers.push(() => {
-      this.container.removeEventListener('touchstart', touchStart);
-      this.container.removeEventListener('touchmove', touchMove);
-      this.container.removeEventListener('touchend', touchEnd);
-    });
-
-    // 键盘：仅在首页视图激活时生效
-    const keyHandler = (event) => {
-      if (!this.enabled) return;
-      if (document.body.dataset.view !== 'home') return;
-      const tag = (event.target?.tagName || '').toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-
-      if (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === 'PageDown') {
-        event.preventDefault();
-        if (this.currentIndex < this.slideEls.length - 1) this.goTo(this.currentIndex + 1);
-        else this.onExitDown?.();
-      } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft' || event.key === 'PageUp') {
-        if (this.currentIndex > 0) {
-          event.preventDefault();
-          this.goTo(this.currentIndex - 1);
+        // 选出可见比例最高的一屏作为当前屏
+        let best = this.currentIndex;
+        let bestRatio = ACTIVE_RATIO;
+        for (const [index, ratio] of this.ratios) {
+          if (ratio > bestRatio) {
+            best = index;
+            bestRatio = ratio;
+          }
         }
-      }
-    };
-    document.addEventListener('keydown', keyHandler);
-    this.boundHandlers.push(() => document.removeEventListener('keydown', keyHandler));
+        if (best !== this.currentIndex && best >= 0) {
+          this.activate(best, { animate: true });
+        }
+
+        // 「向下浏览」提示：只在首屏处于视口内时显示
+        const firstRatio = this.ratios.get(0) || 0;
+        this.scrollHint?.classList.toggle('is-visible', firstRatio > 0.55 && this.currentIndex <= 0);
+      },
+      { threshold: [0, 0.08, 0.25, 0.45, 0.6, 0.8, 1] }
+    );
+
+    this.slideEls.forEach((slideEl) => this.observer.observe(slideEl));
   }
 
-  goTo(index, { fromWheel = false } = {}) {
-    const target = clamp(index, 0, this.slideEls.length - 1);
-    if (target === this.currentIndex) return;
+  /** 激活某一屏：切换 .is-active、更新圆点、播放标题动画 */
+  activate(index, { animate = false, force = false } = {}) {
+    const slideEl = this.slideEls[index];
+    if (!slideEl) return;
 
-    this.currentIndex = target;
-    this.locked = true;
-    setTimeout(() => { this.locked = false; }, fromWheel ? SWITCH_LOCK_MS : 420);
+    if (this.currentIndex !== index || force) {
+      this.slideEls.forEach((elm, i) => {
+        const active = i === index;
+        elm.classList.toggle('is-active', active);
+      });
+      this.dots.forEach((dot, i) => {
+        dot.classList.toggle('is-active', i === index);
+        dot.setAttribute('aria-current', i === index ? 'true' : 'false');
+      });
+      this.currentIndex = index;
+      this.onSlideChange?.(index, this.slideEls.length);
+    }
 
-    this.slideEls.forEach((slideEl, i) => {
-      const active = i === target;
-      slideEl.classList.toggle('is-active', active);
-      slideEl.setAttribute('aria-hidden', active ? 'false' : 'true');
-    });
-
-    qsa('.gallery-dot', this.dotsContainer).forEach((dot, i) => {
-      dot.classList.toggle('is-active', i === target);
-      dot.setAttribute('aria-selected', i === target ? 'true' : 'false');
-    });
-
-    this.animateTitle(target);
-    this.restartAutoplay();
-  }
-
-  next() {
-    if (this.currentIndex < this.slideEls.length - 1) this.goTo(this.currentIndex + 1);
-    else this.goTo(0);
+    if (animate && !this.animatedIn.has(index)) {
+      this.animatedIn.add(index);
+      this.animateTitle(index);
+    }
   }
 
   /** 逐字浮现：每个字从下往上 + 淡入，错开 60ms */
@@ -259,59 +211,64 @@ export class Gallery {
     const chars = qsa('.char', slideEl);
     if (!chars.length) return;
 
-    chars.forEach((char, i) => {
+    const reduced = prefersReducedMotion();
+    chars.forEach((char) => {
       char.style.animation = 'none';
-      char.style.opacity = prefersReducedMotion() ? '1' : '0';
-      char.style.transform = prefersReducedMotion() ? 'none' : 'translate3d(0, 0.5em, 0)';
+      char.style.opacity = reduced ? '1' : '0';
+      char.style.transform = reduced ? 'none' : 'translate3d(0, 0.5em, 0)';
     });
 
-    // 强制重排后重新播放
-    void slideEl.offsetWidth;
+    void slideEl.offsetWidth; // 强制重排后再播放
 
     chars.forEach((char, i) => {
       char.style.animation = '';
       char.style.animationDelay = `${i * 0.06}s`;
-      if (prefersReducedMotion()) {
+      if (reduced) {
         char.style.opacity = '1';
         char.style.transform = 'none';
       }
     });
   }
 
-  setAutoplay(ms) {
-    this.autoplayMs = Number(ms) > 0 ? Number(ms) : 0;
-    this.stopAutoplay();
-    if (this.autoplayMs > 0 && !prefersReducedMotion()) {
-      this.startAutoplay();
+  bindScrollHint() {
+    if (!this.scrollHint) return;
+    const handler = () => this.goTo(Math.min(this.currentIndex + 1, this.slideEls.length - 1));
+    this.scrollHint.addEventListener('click', handler);
+    this.boundHandlers.push(() => this.scrollHint.removeEventListener('click', handler));
+  }
+
+  /** 平滑滚动到指定屏（原生滚动，不劫持滚轮） */
+  goTo(index) {
+    const target = this.slideEls[Math.max(0, Math.min(index, this.slideEls.length - 1))];
+    if (!target) return;
+    if (typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    } else {
+      // 极端降级：直接改滚动位置
+      window.scrollTo({ top: target.offsetTop, behavior: 'auto' });
     }
   }
 
-  startAutoplay() {
-    this.stopAutoplay();
-    if (this.autoplayMs <= 0) return;
-    this.autoplayTimer = setInterval(() => {
-      if (document.hidden) return;
-      this.next();
-    }, this.autoplayMs);
+  next() {
+    this.goTo(this.currentIndex + 1);
   }
 
-  stopAutoplay() {
-    if (this.autoplayTimer) {
-      clearInterval(this.autoplayTimer);
-      this.autoplayTimer = null;
-    }
-  }
-
-  restartAutoplay() {
-    if (this.autoplayMs > 0) this.startAutoplay();
+  prev() {
+    this.goTo(this.currentIndex - 1);
   }
 
   setEnabled(enabled) {
     this.enabled = Boolean(enabled);
   }
 
+  /** 兼容旧调用：滚动布局下不再自动轮播 */
+  setAutoplay() {
+    /* 原生滚动布局无需自动轮播 */
+  }
+
   destroy() {
-    this.stopAutoplay();
+    this.observer?.disconnect();
+    this.observer = null;
     this.boundHandlers.forEach((fn) => {
       try {
         fn();
