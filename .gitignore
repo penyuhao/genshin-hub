@@ -1,35 +1,38 @@
-# 依赖与构建产物
+# ---------- 依赖与缓存 ----------
 node_modules/
 .npm-cache/
 
-# 环境变量（含密钥，绝不提交）
-server/.env
+# ---------- 环境变量（含密钥，绝不提交）----------
 .env
 .env.local
+server/.env
+!server/.env.example
 
-# 运行时数据
-server/data/config.json
-server/data/backups/
-# 管理员凭据（bcrypt 哈希）与数据源密钥，绝不提交
-server/data/auth.json
-server/data/kuma.json
+# ---------- 运行时数据 ----------
+# 默认数据目录 server/data：除出厂模板外全部忽略
+# （配置 / 凭据 / 数据源密钥 / 备份 / 上传 / 自动生成的密钥）
+server/data/*
+!server/data/config.default.json
 
-# 用户上传内容
+# 若用 DATA_DIR 指向仓库内其他目录（如 ./data），同样忽略
+/data/
+*.sqlite
+*.sqlite3
+
+# ---------- 旧版上传目录（当前上传已改到数据目录）----------
 frontend/images/uploads/*
 !frontend/images/uploads/.gitkeep
 frontend/fonts/uploads/*
 !frontend/fonts/uploads/.gitkeep
 
-# 临时文件
+# ---------- 本机专用 ----------
+.local/
 .tmp-*
 *.log
 npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# 本机专用（含 TLS 拦截 CA 等本地配置，绝不提交）
-.local/
-
-# 字体素材原始 Release 包（已按需提取到 frontend/fonts）
+# ---------- 字体素材原始 Release 包（已按需提取到 frontend/fonts）----------
 HoYo-Glyphs-Release/
 __MACOSX/

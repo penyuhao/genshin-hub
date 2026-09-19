@@ -1,15 +1,31 @@
 {
   "name": "genshin-hub",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "原神功能快捷站 —— 全栈站点（静态前端 + Node 后端 + Kuma 中转 + 配置后台）",
+  "description": "原神功能快捷站 —— 七国画廊 + Uptime Kuma 监控面板 + 全可视化配置后台（零构建步骤，可部署到任何平台）",
+  "keywords": [
+    "genshin",
+    "genshin-impact",
+    "uptime-kuma",
+    "status-page",
+    "three.js",
+    "express"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
+    "postinstall": "npm --prefix server install --no-audit --no-fund",
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "install:server": "npm --prefix server install",
+    "serve": "node server/index.js",
+    "test": "node tests/smoke.mjs",
+    "test:full": "node tests/smoke.mjs && node tests/sse-live.mjs && node tests/frontend-dom.mjs",
     "test:api": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/api-smoke.ps1",
     "test:dom": "node tests/frontend-dom.mjs",
-    "test": "npm run test:api && npm run test:dom"
+    "test:sse": "node tests/sse-live.mjs",
+    "install:server": "npm --prefix server install"
   },
   "devDependencies": {
     "jsdom": "^30.1.0"

@@ -11,6 +11,7 @@
 
 **亮点**
 
+- 📦 **部署到任何地方**：零构建、零外部依赖（无数据库 / 无 Redis），Node ≥18 即可跑；**首次启动自动生成 JWT 密钥与随机管理员密码**，不写 `.env` 也能用；数据全部集中在 `DATA_DIR`，容器/PaaS/NAS 挂一个卷就行 → [部署指南](docs/deployment.md)
 - 🎴 **11 屏沉浸式画廊**：开场「原神」+ 七国（蒙德/璃月/稻妻/须弥/枫丹/纳塔/至冬）+ 挪德卡莱 + 坎瑞亚 + 哥伦比娅，滚轮/触摸/圆点/键盘四种操作，末屏下滑**一步跳转**到下方模块
 - ✨ **五层动画系统**：Three.js Shader 星空（10000 点独立闪烁）、三环反向星环、月亮自转呼吸、鼠标光晕与粒子拖尾、点击涟漪、Ken Burns、视差滚动
 - 🔤 **7 套 HoYo-Glyphs 架空文字**：提瓦特/稻妻/须弥/坎瑞亚（含层岩巨渊变体）/赤冠，中文自动回退衬线，把 ttf 丢进目录即生效
@@ -49,12 +50,12 @@
 git clone https://github.com/penyuhao/genshin-hub.git
 cd genshin-hub
 
-# 1) 安装后端依赖（前端零依赖，Three.js 已内置到 frontend/js/vendor）
-cd server && npm install && cd ..
+# 1) 安装依赖（根目录即可：postinstall 会自动安装 server/ 依赖；前端零依赖，Three.js 已内置）
+npm install
 
-# 2) 启动（默认 Mock 演示模式，无需任何外部服务）
+# 2) 启动 —— 无需任何配置，默认 Mock 演示模式
 npm start
-# 等价于： node server/index.js
+#    首次启动会自动生成 JWT 密钥与随机管理员密码，并打印在控制台（只打印一次）
 
 # 3) 打开
 #    站点首页   http://localhost:3001
@@ -62,21 +63,26 @@ npm start
 #    健康检查   http://localhost:3001/health
 ```
 
-默认管理员账号（**首次启动前请在 `server/.env` 里设置你自己的密码**，登录后也可在后台「账号与安全」中修改）：
+默认监听 `0.0.0.0:3001`（容器/PaaS 友好）。本机只想自己访问就 `HOST=127.0.0.1 npm start`。
 
-| 用户名 | 密码 | 登录保护 |
-|---|---|---|
-| 由 `ADMIN_USERNAME` 决定（默认 `admin`） | 由 `ADMIN_PASSWORD` 决定 | 图形验证码 + 登录限流（每 IP 15 分钟 10 次） |
+**想固定管理员密码与密钥**（生产推荐，可选）：
 
 ```bash
-# 部署前务必设置（server/.env）
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=换成一个只有你知道的强密码
-JWT_SECRET=用 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))" 生成
+cp server/.env.example server/.env
+# 编辑 server/.env：至少填 ADMIN_PASSWORD 与 JWT_SECRET
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"   # JWT_SECRET
 ```
 
-> ⚠️ 仓库里**不包含任何真实密码或密钥**：`.env`、`data/config.json`、`data/auth.json`、`data/kuma.json` 全部已被 `.gitignore` 排除。
-> 测试脚本的登录密码也是从 `server/.env` 读取的，不写死在代码里。
+| 项目 | 说明 |
+|---|---|
+| 管理员账号 | `ADMIN_USERNAME`（默认 `admin`）；密码：`.env` 里填的，或首次启动控制台打印的那个 |
+| 登录保护 | 图形验证码 + 登录限流（每 IP 15 分钟 10 次失败） |
+| 数据目录 | 默认 `server/data`，可用 `DATA_DIR` 指到任意可写目录/挂载卷 |
+| 部署到各种平台 | 见 **[docs/deployment.md](docs/deployment.md)**（裸机 / systemd / PM2 / Docker / Compose / PaaS / K8s / NAS + Nginx + 故障排查） |
+
+> 前端静态文件与 API 由**同一个 Node 服务**托管，天然同源，无需配置跨域、也不会有密钥泄露到前端的问题。
+>
+> 数据源（Uptime Kuma）、管理员账号密码、图形验证码开关**全部可以在管理后台里改**，改完即时生效、无需重启进程。
 
 > 前端静态文件与 API 由**同一个 Node 服务**托管，天然同源，无需配置跨域、也不会有密钥泄露到前端的问题。
 >
@@ -133,18 +139,24 @@ Helmet CSP / HSTS（生产）/ X-Frame-Options: DENY、CORS 显式白名单、AP
 ```
 web_nas/
 ├── server/                       # Node.js 后端
-│   ├── index.js                  # 入口：安全中间件 → 静态托管 → API → SPA 回退
+│   ├── index.js                  # 入口：启动自举 → 安全中间件 → 静态托管 → API → SPA 回退
+│   ├── paths.js                  # 路径与数据目录统一管理（DATA_DIR / UPLOAD_DIR / FRONTEND_DIR）
 │   ├── cache.js                  # node-cache 封装
 │   ├── .env                      # 环境变量（含密钥，已被 .gitignore 排除）
-│   ├── .env.example              # 环境变量模板
+│   ├── .env.example              # 环境变量模板（含全部可选项与默认值）
 │   ├── routes/
 │   │   ├── status.js             # Kuma 状态 + SSE + 状态页跳转
 │   │   ├── config.js             # 配置读写 + 备份还原
-│   │   ├── auth.js               # 管理员登录 / 令牌校验
+│   │   ├── auth.js               # 图形验证码 / 登录 / 账号安全
+│   │   ├── settings.js           # 数据源（Kuma）运行时设置
 │   │   └── media.js              # 字体清单 + 图片/字体上传
 │   ├── services/
+│   │   ├── bootstrap.js          # 首次启动自举（自动生成密钥与随机密码）
+│   │   ├── captcha.js            # 图形验证码（纯 Node 生成 PNG 位图）
+│   │   ├── authService.js        # 管理员凭据（bcrypt）
 │   │   ├── kumaRest.js           # Kuma REST 调用与数据合并
-│   │   ├── kumaSocket.js         # 可选 Socket.IO 通道（阶段10）
+│   │   ├── kumaSocket.js         # 可选 Socket.IO 通道
+│   │   ├── kumaConfig.js         # 数据源运行时设置
 │   │   ├── mockKuma.js           # Mock 数据源
 │   │   ├── statusService.js      # 缓存 / 降级 / 轮询 / 广播中枢
 │   │   ├── sseBus.js             # SSE 客户端注册表
@@ -155,10 +167,10 @@ web_nas/
 │   │   ├── auth.js               # JWT 校验
 │   │   └── validate.js           # zod 全部区块 schema
 │   ├── ecosystem.config.js       # PM2 部署配置
-│   └── data/
-│       ├── config.default.json   # 出厂默认配置
-│       ├── config.json           # 运行时配置（首次启动自动生成）
-│       └── backups/              # 配置快照
+│   └── data/                     # 默认数据目录（DATA_DIR）
+│       ├── config.default.json   # 出厂默认配置（随代码发布）
+│       └── …                     # 运行时生成：config.json / auth.json / kuma.json /
+│                                 #   secrets.json / backups/ / uploads/（均已 gitignore）
 ├── frontend/                     # 静态前端（无构建步骤）
 │   ├── index.html
 │   ├── css/{fonts,main,animations,responsive}.css
@@ -181,52 +193,65 @@ web_nas/
 │       ├── logo.svg / favicon.svg / moon-craters.svg
 │       └── uploads/              # 后台上传的图片
 └── tests/
-    ├── api-smoke.ps1             # 后端接口冒烟测试（52 项）
+    ├── smoke.mjs                 # 跨平台冒烟测试（Windows/Linux/macOS 通用，29 项）
+    ├── api-smoke.ps1             # 后端接口冒烟测试（PowerShell，52 项）
     ├── frontend-dom.mjs          # 前端 DOM 集成测试（67 项）
     └── sse-live.mjs              # SSE 实时推送验证
 
-docs/原始开发方案.md              # 本项目的源需求文档（13 阶段开发方案）
+docs/
+├── deployment.md                 # 部署到任何地方：裸机 / systemd / PM2 / Docker / PaaS / K8s / NAS
+└── 原始开发方案.md                # 本项目的源需求文档（13 阶段开发方案）
 
 # 部署相关（仓库根目录）
-├── Dockerfile                    # 单容器镜像（非 root + HEALTHCHECK）
-├── docker-compose.yml            # 一键起站（数据卷持久化）
+├── Dockerfile                    # 单容器镜像（非 root + 数据卷 + HEALTHCHECK）
+├── docker-compose.yml            # 一键起站（./data 卷持久化，零前置文件）
 ├── nginx.conf.example            # 反向代理 + HTTPS + SSE 免缓冲
 ├── LICENSE                       # MIT（含第三方素材声明）
-└── .dockerignore / .gitignore
+└── .dockerignore / .gitignore / .gitattributes
 ```
 
 ---
 
 ## 四、环境变量
 
-> 大部分配置**不需要改这里**：Uptime Kuma 数据源、管理员账号密码、验证码开关都能在管理后台里改。
-> 下表中的 Kuma 相关项相当于「初始值/兜底值」——一旦在面板里保存过，就以 `server/data/kuma.json` 为准。
+> **全部有默认值，一个都不填也能跑**：首次启动会自动生成 JWT 密钥（存 `DATA_DIR/secrets.json`）与随机管理员密码（bcrypt 存 `DATA_DIR/auth.json`，明文只打印一次）。
+> 大部分配置也**不需要改这里**：Uptime Kuma 数据源、管理员账号密码、验证码开关都能在管理后台里改。
 
-编辑 `server/.env`（模板见 `server/.env.example`）：
+编辑 `server/.env`（完整模板见 `server/.env.example`）：
 
-| 变量 | 说明 |
-|---|---|
-| `KUMA_URL` | Kuma 实例地址，**留空即 Mock 演示模式** |
-| `KUMA_STATUS_SLUG` | 状态页 slug |
-| `KUMA_API_KEY` | API Key（Basic Auth：username 留空、password 填 Key） |
-| `KUMA_USERNAME` / `KUMA_PASSWORD` | 仅 Socket 实时通道需要 |
-| `KUMA_SOCKET_ENABLED` | `true` 且提供上面账号密码时启用 Socket 实时通道 |
-| `PORT` | 服务端口，默认 3001 |
-| `NODE_ENV` | `production` 时启用 HSTS、隐藏 5xx 细节、**严格限流** |
-| `POLL_INTERVAL` | 状态轮询间隔（秒），默认 30 |
-| `CACHE_TTL` | Kuma 结果缓存秒数，默认 30 |
-| `ALLOWED_ORIGIN` | CORS 白名单（逗号分隔），同源部署保持默认 |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | 管理后台初始账号（首次启动的兜底） |
-| `ADMIN_PASSWORD_HASH` | bcrypt 哈希；存在时优先于明文密码 |
-| `JWT_SECRET` | JWT 签名密钥（已随机生成，泄露请立即更换） |
-| `JWT_EXPIRES_IN` | 令牌有效期，默认 24h |
-| `API_RATE_LIMIT_MAX` | API 限流上限，默认 100 次 / 15 分钟 |
-| `LOGIN_RATE_LIMIT_MAX` | 登录失败限流上限，默认 10 次 / 15 分钟 |
-| `RATE_LIMIT_BYPASS_LOOPBACK` | 本机开发豁免（仅非生产生效），默认 `false` |
-| `CAPTCHA_BYPASS_TOKEN` | 自动化测试旁路令牌，**留空 = 完全禁用旁路**（生产建议留空） |
+### 服务与目录
 
-> 运行时数据都在 `server/data/` 下，且已被 `.gitignore` 排除：
-> `config.json`（站点配置）、`kuma.json`（数据源密钥）、`auth.json`（管理员 bcrypt 哈希）、`backups/`（配置快照）。
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `PORT` | `3001` | 监听端口（PaaS 注入的 `PORT` 自动生效） |
+| `HOST` | `0.0.0.0` | `0.0.0.0` 所有网卡（容器/PaaS）；`127.0.0.1` 仅本机 |
+| `NODE_ENV` | `development` | 生产设 `production`：HSTS + 隐藏 5xx 细节 + 长缓存 + 严格限流 |
+| `TRUST_PROXY` | `1` | 反代层数；直连填 `false`，也可 `loopback` / `true` / 数字 |
+| `DATA_DIR` | `server/data` | **运行时数据根目录**（配置/凭据/备份/上传/密钥），容器挂卷改这里 |
+| `UPLOAD_DIR` | `DATA_DIR/uploads` | 上传文件目录 |
+| `FRONTEND_DIR` | `frontend` | 静态资源目录 |
+
+### 数据源与安全
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `KUMA_URL` / `KUMA_STATUS_SLUG` | 空 | 留空即 Mock 演示模式；面板里填过则以面板为准 |
+| `KUMA_API_KEY` | 空 | API Key（Basic Auth：username 留空、password 填 Key） |
+| `KUMA_USERNAME` / `KUMA_PASSWORD` | 空 | 仅 Socket 实时通道需要 |
+| `KUMA_SOCKET_ENABLED` | `false` | `true` 且填了账号密码时启用 Socket |
+| `POLL_INTERVAL` / `CACHE_TTL` | `30` / `30` | 轮询与缓存秒数 |
+| `ALLOWED_ORIGIN` | 本机两个地址 | CORS 白名单（逗号分隔） |
+| `API_RATE_LIMIT_MAX` | `100` | API 限流（每 IP / 15 分钟） |
+| `LOGIN_RATE_LIMIT_MAX` | `10` | 登录失败限流（每 IP / 15 分钟） |
+| `RATE_LIMIT_BYPASS_LOOPBACK` | `false` | 仅非生产生效，本机调试豁免 |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / 空 | 留空则首次启动自动生成随机密码 |
+| `ADMIN_PASSWORD_HASH` | 空 | bcrypt 哈希，优先级高于明文 |
+| `JWT_SECRET` | 空 | 留空则自动生成并存入 `DATA_DIR/secrets.json` |
+| `JWT_EXPIRES_IN` | `24h` | 令牌有效期 |
+| `CAPTCHA_BYPASS_TOKEN` | 空 | 自动化测试旁路令牌，**生产留空** |
+
+> 运行时数据都在 `DATA_DIR`（默认 `server/data`）下，已被 `.gitignore` 排除：
+> `config.json`（站点配置）、`kuma.json`（数据源密钥）、`auth.json`（管理员 bcrypt 哈希）、`secrets.json`（自动生成的 JWT 密钥）、`backups/`（配置快照）、`uploads/`（上传的图片与字体）。
 
 ### 生成 bcrypt 密码哈希（生产推荐）
 
@@ -384,9 +409,11 @@ KUMA_API_KEY=uk1_xxxxxxxxxxxxxxxx
 | 输入验证 | zod 覆盖全部 10 个配置区块 + 登录 + 数据源设置；拒绝而非净化；颜色强制 `#RRGGBB`、地址仅允许站内路径或 https（拦截 `javascript:` 与 `..` 穿越）、字体名格式白名单（防 CSS 注入） | `middleware/validate.js` |
 | 请求体 | 全局 10KB，配置接口 256KB，超出返回 413 | `server/index.js` |
 | 认证 | JWT（HS256，24h）+ 恒定时间比较；bcrypt 哈希存储；**令牌带 tokenVersion，改密后所有旧会话立即失效** | `routes/auth.js`、`middleware/auth.js` |
-| 凭据存储 | 管理员账号密码存 `server/data/auth.json`（bcrypt，0600 语义、已 gitignore），`server/.env` 仅作初始兜底；**是否在面板改过一目了然** | `services/authService.js` |
-| 数据源密钥 | Kuma 地址 / slug / API Key 存 `server/data/kuma.json`，**永不进入公开的 `/api/config`**，后台只回传脱敏后的 Key | `services/kumaConfig.js` |
-| 密钥 | 全部在 `.env` / `data/*.json`，`.gitignore` 排除；前端零密钥 | `.gitignore` |
+| 凭据存储 | 管理员账号密码存 `DATA_DIR/auth.json`（bcrypt，已 gitignore），`.env` 仅作初始兜底；两者都没有时自动生成随机密码并打印一次 | `services/authService.js`、`services/bootstrap.js` |
+| 密钥管理 | JWT 密钥写在 `.env`，或首次启动自动生成到 `DATA_DIR/secrets.json`（0600 语义）；**换机器迁移时会跟着数据目录走** | `services/bootstrap.js` |
+| 数据源密钥 | Kuma 地址 / slug / API Key 存 `DATA_DIR/kuma.json`，**永不进入公开的 `/api/config`**，后台只回传脱敏后的 Key | `services/kumaConfig.js` |
+| 路径与目录 | `DATA_DIR` / `UPLOAD_DIR` / `FRONTEND_DIR` 统一由 `paths.js` 管理；启动时自检可写性并给出修复建议，避免运行时才炸 | `server/paths.js` |
+| 密钥泄露面 | 仓库不含任何凭据：`.gitignore` 排除 `DATA_DIR/*`、`.env`、`.local/`；测试脚本凭据也从 `.env` 读取 | `.gitignore`、`tests/*` |
 | 配置写入 | 临时文件 + rename 原子写入；写前自动备份，保留 20 份 | `services/configService.js` |
 | 上传 | 扩展名白名单、服务端生成文件名、大小限制、图片排除 SVG（防脚本注入） | `routes/media.js` |
 | 跳转 | `/api/status/open` 服务端 302，校验 http(s)，防开放重定向 | `routes/status.js` |
@@ -408,19 +435,23 @@ KUMA_API_KEY=uk1_xxxxxxxxxxxxxxxx
 ## 十、测试与验收
 
 ```bash
-npm run test:api          # 后端接口冒烟测试（PowerShell，35 项）
-npm run test:dom          # 前端 DOM 集成测试（Node + jsdom，44 项）
-node tests/sse-live.mjs   # SSE 实时推送验证（约 40 秒）
-npm test                  # 前两项一起跑
+npm test                  # 跨平台冒烟测试（Windows / Linux / macOS 通用，需先 npm start）
+npm run test:full         # 冒烟 + SSE + 前端 DOM 全跑
+npm run test:api          # 后端接口冒烟（PowerShell，Windows）
+npm run test:dom          # 前端 DOM 集成（Node + jsdom，跨平台）
+npm run test:sse          # SSE 实时推送验证（约 40 秒）
 ```
 
 当前结果：
 
 | 测试 | 结果 |
 |---|---|
-| 后端接口冒烟 | **52 / 52 通过**（含验证码全链路、数据源设置、账号安全、凭据脱敏） |
+| 跨平台冒烟（`tests/smoke.mjs`） | **29 / 29 通过**（服务存活 / 安全头 / 静态资源 MIME / 公开接口 / 验证码与权限边界 / SSE） |
+| 后端接口冒烟（PowerShell） | **52 / 52 通过**（含验证码全链路、数据源设置、账号安全、凭据脱敏） |
 | 前端 DOM 集成 | **67 / 67 通过**（含 11 屏画廊、七国齐全、字体接入、资讯已移除、下滑一步跳转、验证码登录、后台新区块） |
 | SSE 实时推送 | 初始快照 + 变化广播 **通过** |
+| **全新环境自举** | **通过**（无 `.env`、无数据目录 → 自动生成密钥与随机密码并正常服务） |
+| 上传落盘 | 通过（写入 `DATA_DIR/uploads`，经 `/uploads` 公开访问，代码目录保持只读可用） |
 | 登录限流 | 连续错误密码后第 11 次起返回 **429** |
 | 验证码防爆破 | 无码 400 / 错码 400 / **同码重放被拒** / 大小写不敏感 ✅ |
 | 依赖漏洞 | `npm audit --omit=dev` → **0 vulnerabilities** |
@@ -432,35 +463,42 @@ npm test                  # 前两项一起跑
 
 ## 十一、部署指南
 
-仓库已内置三套部署配置，任选其一。
+> 📘 **完整部署文档：[docs/deployment.md](docs/deployment.md)** —— 覆盖零配置首启、数据目录与持久化、全部环境变量、裸机 / systemd / PM2 / Docker / Compose / PaaS / K8s / NAS、Nginx + HTTPS、升级迁移、上线安全检查清单与故障排查表。
+> 下面是速查版。
 
-### 1. 直接运行 / PM2
+### 0. 通用心法
+
+| 要点 | 说明 |
+|---|---|
+| 不写 `.env` 也能跑 | 首次启动自动生成 JWT 密钥与随机管理员密码（控制台打印一次） |
+| 一个目录装下所有状态 | `DATA_DIR`（默认 `server/data`）：配置 / 凭据 / 数据源密钥 / 备份 / 上传 / 自动密钥 |
+| 代码目录可只读 | 上传与数据都写到 `DATA_DIR`，容器 / PaaS 直接跑打包镜像即可 |
+| 端口自适应 | PaaS 注入的 `PORT` 自动生效；`HOST` 默认 `0.0.0.0` |
+
+### 1. 直接运行 / systemd / PM2
 
 ```bash
-# 直接运行
-npm start
+npm install && npm start                      # 最简：任何装了 Node ≥18 的机器
 
-# PM2（配置见 server/ecosystem.config.js：单进程 fork、300MB 内存上限、5 秒优雅退出）
-npm install -g pm2
-cd server && pm2 start ecosystem.config.js && pm2 save && pm2 startup
+# PM2（配置见 server/ecosystem.config.js：单进程、300MB 内存上限、5 秒优雅退出）
+npm i -g pm2 && cd server && pm2 start ecosystem.config.js && pm2 save
+
+# systemd：见 docs/deployment.md 第四节（含 ProtectSystem 只读加固示例）
 ```
 
 ### 2. Docker / Docker Compose
 
 ```bash
-# 1) 准备好 server/.env（管理员密码、Kuma 配置）
-# 2) 构建并启动
 docker compose up -d --build
-
-# 3) 查看健康状态
-docker compose ps && curl http://localhost:3001/health
+docker compose logs -f genshin-hub     # 首次启动的随机管理员密码在这里
+curl http://localhost:3001/health
 ```
 
-`docker-compose.yml` 已把 `server/data`（配置与备份）、`frontend/images/uploads`、`frontend/fonts/uploads` 挂载为卷，镜像更新不会丢失配置与上传内容；容器内以非 root 用户运行，并内置 HEALTHCHECK。
+`docker-compose.yml` 把 `./data` 挂成容器内的 `/data`（`DATA_DIR=/data`）：**一份卷就包含配置、凭据、备份与上传**，不依赖 `server/.env` 存在；镜像内以非 root 运行并内置 HEALTHCHECK。
 
 ### 3. Nginx 反向代理 + HTTPS
 
-完整示例见 [`nginx.conf.example`](nginx.conf.example)（含 HTTP→HTTPS 跳转、Let's Encrypt 证书、gzip、上传体积与 **SSE 免缓冲**的关键配置）：
+完整示例见 [`nginx.conf.example`](nginx.conf.example)（HTTP→HTTPS 跳转、Let's Encrypt、gzip、上传体积、**SSE 免缓冲**）。关键片段：
 
 ```nginx
 location /api/status/events {
@@ -473,13 +511,15 @@ location /api/status/events {
 }
 ```
 
-部署到 HTTPS 后，把 `NODE_ENV` 设为 `production`（启用 HSTS 与静态资源长缓存），并把正式域名加入 `ALLOWED_ORIGIN`。
+上 HTTPS 后设 `NODE_ENV=production`（启用 HSTS），把正式域名加入 `ALLOWED_ORIGIN`；反代层数为 1 时保持 `TRUST_PROXY=1`，直连公网改 `false`。
 
-### 4. 备份
+### 4. 备份与迁移
 
 ```bash
-# 配置快照（后台每次保存自动生成，也可定时打包）
-tar -czf config-$(date +%F).tar.gz server/data/
+# 一份数据目录 = 全部状态（配置 + 凭据 + 备份 + 上传）
+tar -czf genshin-hub-$(date +%F).tar.gz -C server data/
+
+# 迁移到新机器：拷仓库 + npm install + 拷贝 DATA_DIR + npm start 即可
 ```
 
 ---
@@ -545,11 +585,32 @@ A：登录后台 →「数据源设置」→ 填 Kuma 地址、状态页 slug、
 **Q：改完密码为什么被踢下线了？**
 A：这是有意设计。改密会自增令牌版本（tokenVersion），所有已签发的 JWT 立即失效，防止旧会话被继续使用。
 
+**Q：怎么把它部署到别的机器 / 服务器？**
+A：把仓库拷过去 → `npm install` → `npm start` 即可，**连 `.env` 都不用建**（首次启动自动生成密钥和随机管理员密码）。
+数据全在 `DATA_DIR`（默认 `server/data`），迁移时把这个目录一起带走就行。详见 [docs/deployment.md](docs/deployment.md)。
+
+**Q：容器/PaaS 重启后配置全丢了、密码也变了？**
+A：说明没挂持久卷。设 `DATA_DIR=/data` 并把卷挂到 `/data`（Compose 已默认配好），一份卷包含配置、凭据、备份与上传。
+
+**Q：代码目录是只读的（比如 K8s 只读根文件系统），能跑吗？**
+A：可以。运行时只写 `DATA_DIR`，上传也落在 `DATA_DIR/uploads` 并通过 `/uploads` 提供；启动时会自检可写性，不可写会打印修复建议。
+
 ---
 
 ## 十四、更新记录
 
-### v2（当前）
+### v2.1（当前）
+- **可移植性：部署到任何地方**
+  - 新增 `server/paths.js`：`DATA_DIR` / `UPLOAD_DIR` / `FRONTEND_DIR` 全部可配置，代码目录可只读
+  - 新增 `server/services/bootstrap.js`：**零配置首次启动** —— 自动生成 JWT 密钥（`DATA_DIR/secrets.json`）与随机管理员密码（bcrypt 落盘 + 控制台打印一次）
+  - 后台上传改写入 `DATA_DIR/uploads`，经 `/uploads` 提供（旧目录仍兼容），容器挂一个卷就够
+  - 支持 `HOST` / `PORT` / `TRUST_PROXY` 环境变量；启动日志打印数据目录、上传目录与可写性告警
+  - Docker 镜像改为 `DATA_DIR=/data` + 声明 `VOLUME`；compose 不再依赖 `server/.env` 存在，零前置文件即可 `up`
+  - 根目录 `npm install` 自动安装 server 依赖（PaaS 构建流程开箱可用）
+  - 新增跨平台测试 `tests/smoke.mjs`（Windows/Linux/macOS 通用）
+  - 新增 **[docs/deployment.md](docs/deployment.md)**：裸机 / systemd / PM2 / Docker / Compose / PaaS / K8s / NAS / Nginx + 上线检查清单 + 故障排查表
+
+### v2
 - **新增登录图形验证码**：纯 Node 生成 PNG 位图（零依赖），一次性 + 5 分钟过期 + 容量上限，可后台开关
 - **新增「数据源设置」区块**：Kuma 地址 / slug / API Key / 轮询间隔 / 缓存时长全部面板可改，支持测试连接与热重载
 - **新增「账号与安全」区块**：面板内修改管理员账号密码（bcrypt 落盘），改密后旧令牌全部失效
@@ -559,6 +620,7 @@ A：这是有意设计。改密会自增令牌版本（tokenVersion），所有�
 - **画廊下滑改为一步跳转**：末屏下滑直接平滑跳到「服务状态速览」，不再逐像素拖动
 - **接入 7 套 HoYo-Glyphs 官方架空文字字体**（woff2，96KB）与 6 张真实美术素材（5120×2160 → 1920×1080 webp）
 - 新增 6 张程序化生成的国家/地区背景图（蒙德 / 枫丹 / 纳塔 / 至冬 / 挪德卡莱 / 坎瑞亚）
+- 安全加固：仓库不含任何凭据，测试脚本凭据改为从 `.env` 读取
 
 ### v1
 - 完成方案 13 个阶段：安全后端、Kuma 中转、配置后台、画廊动画系统、手机端适配、SSE 实时推送、安全加固

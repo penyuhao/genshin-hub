@@ -1,22 +1,27 @@
 // services/configService.js — 配置读写服务（原子写入 + 自动备份 + 内存缓存）
+// 路径全部来自 paths.js：DATA_DIR 可指向挂载卷，出厂模板随代码走
 const fs = require('fs').promises;
 const path = require('path');
+const paths = require('../paths');
 
-const CONFIG_PATH = path.join(__dirname, '../data/config.json');
-const BACKUP_DIR = path.join(__dirname, '../data/backups');
+const CONFIG_PATH = paths.CONFIG_PATH;
+const BACKUP_DIR = paths.BACKUP_DIR;
 const MAX_BACKUPS = 20;
 
 let memoryCache = null;
 let memoryCacheMtime = 0;
 
-/** 读取默认配置（config.default.json，缺失时回退空对象） */
+/** 读取出厂默认配置（随代码发布的模板，缺失时回退空对象） */
 async function readDefaults() {
-  try {
-    const raw = await fs.readFile(path.join(__dirname, '../data/config.default.json'), 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return {};
+  const candidates = [paths.CONFIG_DEFAULT_PATH, path.join(__dirname, '../data/config.default.json')];
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(await fs.readFile(candidate, 'utf-8'));
+    } catch {
+      /* 试下一个 */
+    }
   }
+  return {};
 }
 
 /** 深合并：对象递归、数组整体替换 */

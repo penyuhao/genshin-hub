@@ -1,10 +1,11 @@
 // services/kumaConfig.js — 数据源（Uptime Kuma）运行时可配置
-// 存储： server/data/kuma.json（不进版本库、不进公开配置 /api/config）
+// 存储： DATA_DIR/kuma.json（不进版本库、不进公开配置 /api/config）
 // 优先级：kuma.json 中的非空值 > .env > 内置默认
 const fs = require('fs').promises;
 const path = require('path');
+const paths = require('../paths');
 
-const KUMA_PATH = path.join(__dirname, '../data/kuma.json');
+const KUMA_PATH = paths.KUMA_PATH;
 
 const DEFAULTS = {
   url: '',

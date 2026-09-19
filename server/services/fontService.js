@@ -1,18 +1,23 @@
 // services/fontService.js — 字体自动发现
-// 扫描 frontend/fonts（含 uploads 子目录），把文件名解析为 CSS 字族名。
-// 前端启动时拉取该列表并动态注入 @font-face，因此「把 ttf 丢进目录即可生效」。
+// 扫描三处并把文件名解析为 CSS 字族名：
+//   1) FRONTEND_DIR/fonts           随代码发布的字体（只读）
+//   2) FRONTEND_DIR/fonts/uploads   旧版上传目录（兼容已有部署）
+//   3) DATA_DIR/uploads/fonts       当前上传目录（可写卷，容器友好）
+// 前端启动时拉取该列表并动态注入 @font-face，因此「把字体丢进目录即可生效」。
 const fs = require('fs').promises;
 const path = require('path');
+const paths = require('../paths');
 
-const FONT_DIR = path.join(__dirname, '../../frontend/fonts');
-const UPLOAD_DIR = path.join(FONT_DIR, 'uploads');
+const FONT_DIR = paths.FONT_DIR;
+const LEGACY_UPLOAD_DIR = paths.LEGACY_FONT_UPLOAD_DIR;
+const UPLOAD_DIR = paths.FONT_UPLOAD_DIR;
 const FONT_EXTS = new Set(['.ttf', '.otf', '.woff', '.woff2']);
 
 const CATEGORY_HINTS = [
   ['teyvat', 'Teyvat'],
   ['inazuma', 'Inazuma'],
   ['khaenriah', 'Khaenriah'],
-  ['khaenri\'ah', 'Khaenriah'],
+  ["khaenri'ah", 'Khaenriah'],
   ['sumeru', 'Sumeru'],
   ['deshret', 'Deshret'],
   ['chasm', 'Khaenriah'],
@@ -36,7 +41,8 @@ function categoryOf(fileName) {
   return 'Other';
 }
 
-async function scanDir(dir, source) {
+/** 扫描单个目录，返回字体条目；urlPrefix 决定前端可访问的路径 */
+async function scanDir(dir, source, urlPrefix) {
   let entries = [];
   try {
     entries = await fs.readdir(dir, { withFileTypes: true });
@@ -50,10 +56,9 @@ async function scanDir(dir, source) {
     const ext = path.extname(entry.name).toLowerCase();
     if (!FONT_EXTS.has(ext)) continue;
 
-    const rel = path.relative(FONT_DIR, path.join(dir, entry.name)).split(path.sep).join('/');
     out.push({
       family: familyFromFile(entry.name),
-      file: `/fonts/${rel}`,
+      file: `${urlPrefix}/${encodeURIComponent(entry.name)}`,
       format: ext.slice(1),
       category: categoryOf(entry.name),
       source,
@@ -62,10 +67,23 @@ async function scanDir(dir, source) {
   return out;
 }
 
-/** 列出可用字体（内置目录 + 上传目录） */
+/** 列出可用字体（代码内置 + 旧版上传 + 新版上传），同名字族去重 */
 async function listFonts() {
-  const [builtin, uploaded] = await Promise.all([scanDir(FONT_DIR, 'builtin'), scanDir(UPLOAD_DIR, 'upload')]);
-  return [...builtin, ...uploaded].sort((a, b) => a.family.localeCompare(b.family));
+  const [builtin, legacy, uploaded] = await Promise.all([
+    scanDir(FONT_DIR, 'builtin', '/fonts'),
+    scanDir(LEGACY_UPLOAD_DIR, 'upload', '/fonts/uploads'),
+    scanDir(UPLOAD_DIR, 'upload', paths.FONT_URL_PREFIX),
+  ]);
+
+  const seen = new Set();
+  const merged = [];
+  for (const font of [...builtin, ...legacy, ...uploaded]) {
+    const key = font.family.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(font);
+  }
+  return merged.sort((a, b) => a.family.localeCompare(b.family));
 }
 
 /** 确保上传目录存在 */
@@ -73,4 +91,12 @@ async function ensureDirs() {
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
 }
 
-module.exports = { listFonts, ensureDirs, FONT_DIR, UPLOAD_DIR, familyFromFile, categoryOf };
+module.exports = {
+  listFonts,
+  ensureDirs,
+  familyFromFile,
+  categoryOf,
+  FONT_DIR,
+  UPLOAD_DIR,
+  LEGACY_UPLOAD_DIR,
+};

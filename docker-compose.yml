@@ -1,8 +1,11 @@
-# docker-compose.yml — 一键起站
-# 用法：
-#   1) 准备 server/.env（含管理员密码与 Kuma 配置）
-#   2) docker compose up -d --build
-#   3) 访问 http://localhost:3001
+# docker-compose.yml — 一键起站（零前置文件也能跑）
+#
+#   1) docker compose up -d --build
+#   2) docker compose logs genshin-hub     ← 首次启动会打印随机管理员密码
+#   3) 打开 http://localhost:3001  （管理后台 /#admin）
+#
+# 数据持久化：一份 ./data 卷包含配置、管理员凭据、Kuma 密钥、备份与上传文件。
+# 想用 server/.env 里的配置？取消下方 volumes 中那一行注释即可。
 services:
   genshin-hub:
     build: .
@@ -11,17 +14,26 @@ services:
     restart: unless-stopped
     ports:
       - '3001:3001'
-    env_file:
-      - server/.env
     environment:
       NODE_ENV: production
+      HOST: 0.0.0.0
       PORT: '3001'
+      # 所有可变数据集中在此目录（已挂载为卷）
+      DATA_DIR: /data
+      TZ: Asia/Shanghai
+      # 需要固定凭据时在此填写（留空则首次启动自动生成并打印）
+      # JWT_SECRET: ''
+      # ADMIN_USERNAME: admin
+      # ADMIN_PASSWORD: ''
     volumes:
-      # 配置与备份持久化（不随镜像更新丢失）
-      - ./server/data:/app/server/data
-      # 后台上传的图片与字体持久化
-      - ./frontend/images/uploads:/app/frontend/images/uploads
-      - ./frontend/fonts/uploads:/app/frontend/fonts/uploads
+      - ./data:/data
+      # - ./server/.env:/app/server/.env:ro   # 想复用 server/.env 时启用
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     logging:
       driver: json-file
       options:

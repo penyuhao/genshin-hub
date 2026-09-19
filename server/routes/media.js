@@ -1,12 +1,16 @@
 // routes/media.js — 字体清单 + 图片/字体上传（管理员）
+// 上传文件写入 DATA_DIR/uploads（可挂载卷），通过 /uploads 静态服务对外提供
 const router = require('express').Router();
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 const { requireAdmin } = require('../middleware/auth');
 const fontService = require('../services/fontService');
+const paths = require('../paths');
 
-const IMAGE_DIR = path.join(__dirname, '../../frontend/images/uploads');
+const IMAGE_DIR = paths.IMAGE_UPLOAD_DIR;
+const FONT_DIR = paths.FONT_UPLOAD_DIR;
 
 const IMAGE_TYPES = new Map([
   ['.png', 'image/png'],
@@ -26,7 +30,13 @@ const FONT_TYPES = new Map([
 function makeStorage(dir) {
   return multer.diskStorage({
     destination(req, file, cb) {
-      cb(null, dir);
+      // 目录可能因卷挂载顺序而尚未存在，这里兜底创建
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+      } catch (err) {
+        cb(err);
+      }
     },
     filename(req, file, cb) {
       // 服务端生成文件名：杜绝路径穿越与同名覆盖
@@ -54,7 +64,7 @@ const uploadImage = multer({
 });
 
 const uploadFont = multer({
-  storage: makeStorage(fontService.UPLOAD_DIR),
+  storage: makeStorage(FONT_DIR),
   limits: { fileSize: 12 * 1024 * 1024, files: 1 },
   fileFilter: makeFilter(FONT_TYPES),
 });
@@ -76,6 +86,9 @@ function handleUpload(middleware) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(413).json({ error: '文件过大' });
       }
+      if (err.code === 'EACCES' || err.code === 'EROFS') {
+        return res.status(500).json({ error: '数据目录不可写，请检查 DATA_DIR 挂载与权限' });
+      }
       return res.status(400).json({ error: err.message || '上传失败' });
     });
   };
@@ -86,7 +99,7 @@ router.post('/uploads/image', requireAdmin, handleUpload(uploadImage.single('fil
   if (!req.file) return res.status(400).json({ error: '未收到文件' });
   res.json({
     ok: true,
-    url: `/images/uploads/${req.file.filename}`,
+    url: `${paths.IMAGE_URL_PREFIX}/${req.file.filename}`,
     size: req.file.size,
   });
 });
@@ -99,7 +112,7 @@ router.post('/uploads/font', requireAdmin, handleUpload(uploadFont.single('file'
     const fonts = await fontService.listFonts();
     return res.json({
       ok: true,
-      url: `/fonts/uploads/${req.file.filename}`,
+      url: `${paths.FONT_URL_PREFIX}/${req.file.filename}`,
       family,
       category: fontService.categoryOf(req.file.originalname),
       fonts,

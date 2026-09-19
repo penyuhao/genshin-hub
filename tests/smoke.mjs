@@ -1,0 +1,202 @@
+// tests/smoke.mjs — 跨平台冒烟测试（Windows / Linux / macOS 通用，纯 Node，零依赖）
+//
+// 用法：
+//   npm start            # 另开一个终端先把服务跑起来
+//   node tests/smoke.mjs
+//   BASE_URL=http://localhost:3001 node tests/smoke.mjs
+//
+// 说明：管理员账号密码从 server/.env 读取（读不到就跳过登录相关用例），
+//      不会把任何凭据写死在代码里。
+import fs from 'node:fs';
+import path from 'node:path';
+
+const BASE = (process.env.BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
+const ROOT = path.resolve(import.meta.dirname, '..');
+
+let pass = 0;
+let fail = 0;
+const failures = [];
+
+function check(name, ok, detail = '') {
+  if (ok) {
+    pass += 1;
+    console.log(`  [PASS] ${name}`);
+  } else {
+    fail += 1;
+    failures.push(`${name}${detail ? ` -> ${detail}` : ''}`);
+    console.log(`  [FAIL] ${name}${detail ? ` -> ${detail}` : ''}`);
+  }
+}
+
+/** 读取 server/.env（不存在返回空对象） */
+function readEnv() {
+  const map = {};
+  try {
+    const text = fs.readFileSync(path.join(ROOT, 'server/.env'), 'utf-8');
+    for (const line of text.split(/\r?\n/)) {
+      if (!line || line.trim().startsWith('#')) continue;
+      const i = line.indexOf('=');
+      if (i === -1) continue;
+      map[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+    }
+  } catch {
+    /* 无 .env：使用默认流程 */
+  }
+  return map;
+}
+
+async function req(pathname, options = {}) {
+  const res = await fetch(`${BASE}${pathname}`, options);
+  let json = null;
+  const type = res.headers.get('content-type') || '';
+  if (type.includes('application/json')) {
+    try { json = await res.json(); } catch { /* ignore */ }
+  }
+  return { status: res.status, json, headers: res.headers, text: json ? null : await res.text().catch(() => '') };
+}
+
+const env = readEnv();
+const bypass = env.CAPTCHA_BYPASS_TOKEN || '';
+const adminUser = env.ADMIN_USERNAME || 'admin';
+const adminPass = env.ADMIN_PASSWORD || '';
+
+console.log('\n=== 原神功能快捷站 · 跨平台冒烟测试 ===');
+console.log(`目标: ${BASE}`);
+console.log(`平台: ${process.platform} | Node ${process.version}\n`);
+
+// ---------- 1. 服务与安全头 ----------
+console.log('[1] 服务存活与安全响应头');
+try {
+  const health = await req('/health');
+  check('GET /health 返回 200', health.status === 200, `HTTP ${health.status}`);
+  check('status = ok', health.json?.status === 'ok', JSON.stringify(health.json));
+  check('报告数据源模式', ['mock', 'live'].includes(health.json?.mode), health.json?.mode);
+} catch (err) {
+  check('GET /health 可访问', false, err.message);
+  console.log('\n服务未启动？请先运行 npm start\n');
+  process.exit(1);
+}
+
+const health = await req('/health');
+check('CSP 含 default-src \'self\'', (health.headers.get('content-security-policy') || '').includes("default-src 'self'"));
+check('X-Frame-Options = DENY', health.headers.get('x-frame-options') === 'DENY');
+check('X-Content-Type-Options = nosniff', health.headers.get('x-content-type-options') === 'nosniff');
+
+// ---------- 2. 静态资源 ----------
+console.log('\n[2] 前端静态资源');
+for (const [file, expectType] of [
+  ['/', 'text/html'],
+  ['/css/main.css', 'text/css'],
+  ['/js/main.js', 'javascript'],
+  ['/js/vendor/three.module.js', 'javascript'],
+]) {
+  const res = await fetch(`${BASE}${file}`);
+  const type = res.headers.get('content-type') || '';
+  check(`${file} 可访问且 MIME 正确`, res.status === 200 && type.includes(expectType), `HTTP ${res.status} ${type}`);
+}
+
+// ---------- 3. 公开 API ----------
+console.log('\n[3] 公开接口');
+const config = await req('/api/config');
+check('GET /api/config 返回配置', config.status === 200 && Boolean(config.json?.site?.title), `HTTP ${config.status}`);
+check('画廊屏数 ≥ 7', (config.json?.hero?.slides?.length || 0) >= 7, `实际 ${config.json?.hero?.slides?.length}`);
+check('不含资讯区块（备案合规）', config.json?.news === undefined);
+check('快捷入口存在', Array.isArray(config.json?.links?.items), `实际 ${typeof config.json?.links?.items}`);
+
+const fonts = await req('/api/fonts');
+check('GET /api/fonts 返回字体清单', fonts.status === 200 && Array.isArray(fonts.json?.fonts), `HTTP ${fonts.status}`);
+check('至少发现 1 套架空文字字体', (fonts.json?.fonts?.length || 0) >= 1, `实际 ${fonts.json?.fonts?.length}`);
+
+const monitors = await req('/api/status/monitors');
+check('GET /api/status/monitors 返回监控列表', monitors.status === 200 && Array.isArray(monitors.json?.monitors),
+  `HTTP ${monitors.status}`);
+check('监控数据结构完整', Boolean(monitors.json?.summary && monitors.json?.lastUpdated));
+
+const summary = await req('/api/status/summary');
+check('GET /api/status/summary 返回摘要', summary.status === 200 && typeof summary.json?.total === 'number');
+
+const missing = await req('/api/does-not-exist');
+check('未知 API 返回 JSON 404', missing.status === 404 && Boolean(missing.json?.error), `HTTP ${missing.status}`);
+
+// ---------- 4. 认证与验证码 ----------
+console.log('\n[4] 认证、验证码与权限边界');
+const captcha = await req('/api/auth/captcha', { headers: bypass ? { 'X-Captcha-Bypass': bypass } : {} });
+check('GET /api/auth/captcha 下发 PNG 验证码', captcha.status === 200 && String(captcha.json?.image || '').startsWith('data:image/png;base64,'),
+  `HTTP ${captcha.status}`);
+check('验证码答案不随响应泄露', bypass ? Boolean(captcha.json?.code) : captcha.json?.code === undefined,
+  bypass ? '（已配旁路令牌，答案按预期返回给测试）' : '未配置旁路却返回了答案');
+
+const noCaptcha = await req('/api/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ username: adminUser, password: adminPass || 'x' }),
+});
+check('缺验证码时登录被拒（400）', noCaptcha.status === 400 && noCaptcha.json?.code === 'CAPTCHA_REQUIRED',
+  `HTTP ${noCaptcha.status}`);
+
+const unauth = await req('/api/config/theme', {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ primaryColor: '#ffffff' }),
+});
+check('未授权写入配置返回 401', unauth.status === 401, `HTTP ${unauth.status}`);
+
+let token = '';
+if (adminPass && bypass) {
+  const cap = await req('/api/auth/captcha', { headers: { 'X-Captcha-Bypass': bypass } });
+  const login = await req('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: adminUser, password: adminPass, captchaId: cap.json?.id, captchaCode: cap.json?.code }),
+  });
+  check('正确凭据 + 验证码可登录', login.status === 200 && Boolean(login.json?.token), `HTTP ${login.status}`);
+  token = login.json?.token || '';
+
+  if (token) {
+    const settings = await req('/api/settings/kuma', { headers: { Authorization: `Bearer ${token}` } });
+    check('GET /api/settings/kuma 需要管理员且密钥脱敏',
+      settings.status === 200 && settings.json?.apiKey === undefined, `HTTP ${settings.status}`);
+
+    const auth = await req('/api/auth/settings', { headers: { Authorization: `Bearer ${token}` } });
+    check('账号安全设置可读', auth.status === 200 && typeof auth.json?.captchaEnabled === 'boolean', `HTTP ${auth.status}`);
+  }
+} else {
+  console.log('  [SKIP] 登录相关用例：server/.env 未提供 ADMIN_PASSWORD 或 CAPTCHA_BYPASS_TOKEN');
+}
+
+// ---------- 5. SSE ----------
+console.log('\n[5] SSE 实时推送');
+try {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  const res = await fetch(`${BASE}/api/status/events`, { signal: controller.signal });
+  const ctype = res.headers.get('content-type') || '';
+  check('SSE 返回 text/event-stream', res.status === 200 && ctype.includes('text/event-stream'), `HTTP ${res.status} ${ctype}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let gotInitial = false;
+  while (!gotInitial) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    if (buffer.includes('"monitors"')) gotInitial = true;
+  }
+  clearTimeout(timer);
+  controller.abort();
+  check('SSE 推送初始快照', gotInitial);
+} catch (err) {
+  check('SSE 连接', false, err.message);
+}
+
+// ---------- 汇总 ----------
+console.log('\n=== 测试结果 ===');
+console.log(`  通过: ${pass}`);
+console.log(`  失败: ${fail}`);
+if (failures.length) {
+  console.log('\n失败明细：');
+  failures.forEach((f) => console.log(`  - ${f}`));
+}
+console.log('');
+process.exit(fail > 0 ? 1 : 0);

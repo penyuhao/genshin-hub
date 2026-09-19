@@ -1,12 +1,14 @@
 // services/authService.js — 管理员凭据与登录安全设置
-// 存储： server/data/auth.json（bcrypt 哈希，不进版本库、不进公开配置）
+// 存储： DATA_DIR/auth.json（bcrypt 哈希，不进版本库、不进公开配置）
 // 回退： 文件不存在时使用 .env 的 ADMIN_USERNAME / ADMIN_PASSWORD(_HASH)
+//        两者都没有时，首次启动会自动生成随机密码并打印到控制台
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const paths = require('../paths');
 
-const AUTH_PATH = path.join(__dirname, '../data/auth.json');
+const AUTH_PATH = paths.AUTH_PATH;
 
 let cache = null;
 
@@ -121,6 +123,21 @@ async function updateCredentials({ currentPassword, newUsername, newPassword, cu
   return getSettings();
 }
 
+/** 首次启动写入初始管理员（由 bootstrap 调用，仅在无任何凭据时执行） */
+async function setInitialCredentials({ username, password }) {
+  const data = await ensureLoaded();
+  const next = {
+    ...data,
+    username: String(username || 'admin'),
+    passwordHash: await bcrypt.hash(String(password), 12),
+    tokenVersion: data.tokenVersion || 1,
+    updatedAt: new Date().toISOString(),
+    initializedBy: 'auto',
+  };
+  await persist(next);
+  return getSettings();
+}
+
 /** 开关图形验证码 */
 async function setCaptchaEnabled(enabled) {
   const data = await ensureLoaded();
@@ -147,6 +164,7 @@ module.exports = {
   getTokenVersion,
   verifyCredentials,
   updateCredentials,
+  setInitialCredentials,
   setCaptchaEnabled,
   safeEqual,
 };
