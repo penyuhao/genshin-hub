@@ -1,6 +1,6 @@
 // js/main.js — 应用入口：加载配置 → 渲染各视图 → 初始化动效与交互
 import { el, clear, qs, qsa, toast, hasText, isMobileViewport, prefersReducedMotion, formatRelativeTime, formatDuration, fetchWithTimeout } from './util.js';
-import { loadConfig, applyTheme, applySiteMeta } from './config.js';
+import { loadConfig, applyTheme, applySiteMeta, CONFIG_REVISION_KEY } from './config.js';
 import { initFonts } from './fonts.js';
 import { initRouter, onViewChange, navigate } from './router.js';
 import { Gallery } from './gallery.js';
@@ -657,6 +657,21 @@ function renderGallery(config) {
 }
 
 /* ============================================================
+   配置同步（后台保存 / 跨标签页）
+   ============================================================ */
+/** 从服务端重新拉配置并整站重渲染（字体清单也一起刷新） */
+async function syncConfigFromServer(message = '已保存并即时生效') {
+  try {
+    const { config: fresh } = await loadConfig({ force: true });
+    await initFonts();
+    renderAll(fresh);
+    toast(message, 'success');
+  } catch (err) {
+    toast(`同步配置失败：${err.message}`, 'error');
+  }
+}
+
+/* ============================================================
    启动
    ============================================================ */
 async function boot() {
@@ -736,11 +751,14 @@ async function boot() {
 
     // 8) 管理后台保存配置后同步前端（无需手动刷新页面）
     document.addEventListener('config-saved', async () => {
-      const { config: fresh } = await loadConfig({ force: true });
-      // 字体清单也一起刷新：后台可能刚上传了新字体
-      await initFonts();
-      renderAll(fresh);
-      toast('已保存并即时生效', 'success');
+      await syncConfigFromServer();
+    });
+
+    // 8.0) 跨标签页同步：后台在另一个标签页保存后，本标签页也要跟着更新
+    //      （否则会出现"这个窗口是新的、那个窗口还是旧的"，很像"配置不生效"）
+    window.addEventListener('storage', (event) => {
+      if (event.key !== CONFIG_REVISION_KEY) return;
+      syncConfigFromServer('另一个标签页更新了配置，已同步');
     });
 
     // 8.1) 上传了新字体：重新注入 @font-face（不用刷新页面）

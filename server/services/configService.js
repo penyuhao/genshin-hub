@@ -81,12 +81,30 @@ async function backupConfig(config) {
   return file;
 }
 
+/**
+ * Windows / 网络卷 / 容器卷上，"刚写完立刻 rename" 偶尔会被杀毒、索引或同步进程
+ * 短暂占用，报 EPERM / EACCES / EBUSY。这里退避重试几次再放弃 —— 否则用户看到的是
+ * "按了保存没反应/保存失败"，而且是随机的，很难排查。
+ */
+async function renameWithRetry(from, to, attempts = 6) {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      await fs.rename(from, to);
+      return;
+    } catch (err) {
+      const retriable = ['EPERM', 'EACCES', 'EBUSY'].includes(err.code);
+      if (!retriable || i === attempts - 1) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 30 * (i + 1)));
+    }
+  }
+}
+
 /** 原子写入：先写临时文件再 rename，避免写一半损坏 */
 async function atomicWrite(config) {
   const tmp = `${CONFIG_PATH}.${process.pid}.${Date.now()}.tmp`;
   const json = JSON.stringify(config, null, 2);
   await fs.writeFile(tmp, json, 'utf-8');
-  await fs.rename(tmp, CONFIG_PATH);
+  await renameWithRetry(tmp, CONFIG_PATH);
   const stat = await fs.stat(CONFIG_PATH);
   memoryCache = config;
   memoryCacheMtime = stat.mtimeMs;

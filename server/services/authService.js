@@ -35,11 +35,21 @@ async function ensureLoaded() {
   return cache;
 }
 
+/** 原子写入（rename 可能被占用，重试几次） */
 async function persist(data) {
   const tmp = `${AUTH_PATH}.${process.pid}.tmp`;
   await fs.mkdir(path.dirname(AUTH_PATH), { recursive: true });
   await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8');
-  await fs.rename(tmp, AUTH_PATH);
+  for (let i = 0; ; i += 1) {
+    try {
+      await fs.rename(tmp, AUTH_PATH);
+      break;
+    } catch (err) {
+      const retriable = ['EPERM', 'EACCES', 'EBUSY'].includes(err.code);
+      if (!retriable || i >= 5) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 30 * (i + 1)));
+    }
+  }
   cache = data;
   return data;
 }

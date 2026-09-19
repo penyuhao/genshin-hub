@@ -93,7 +93,17 @@ async function persist(patch) {
   const tmp = `${KUMA_PATH}.${process.pid}.tmp`;
   await fs.mkdir(path.dirname(KUMA_PATH), { recursive: true });
   await fs.writeFile(tmp, JSON.stringify(next, null, 2), 'utf-8');
-  await fs.rename(tmp, KUMA_PATH);
+  // rename 可能被占用（Windows 杀毒 / 索引、容器卷），退避重试
+  for (let i = 0; ; i += 1) {
+    try {
+      await fs.rename(tmp, KUMA_PATH);
+      break;
+    } catch (err) {
+      const retriable = ['EPERM', 'EACCES', 'EBUSY'].includes(err.code);
+      if (!retriable || i >= 5) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 30 * (i + 1)));
+    }
+  }
 
   cache = merge(next);
   return cache;

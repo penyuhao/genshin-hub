@@ -99,6 +99,11 @@ check('CSP 含 default-src \'self\'', (health.headers.get('content-security-poli
 check('X-Frame-Options = DENY', health.headers.get('x-frame-options') === 'DENY');
 check('X-Content-Type-Options = nosniff', health.headers.get('x-content-type-options') === 'nosniff');
 
+// /health 报出的版本要和 package.json 一致：排查"更新了却没生效"时靠它确认跑的是哪一版
+const pkgVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8')).version;
+check('GET /health 返回版本号且与 package.json 一致', health.json?.version === pkgVersion,
+  `health=${health.json?.version} package=${pkgVersion}`);
+
 // ---------- 2. 静态资源 ----------
 console.log('\n[2] 前端静态资源');
 for (const [file, expectType] of [

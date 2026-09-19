@@ -518,6 +518,17 @@ export class AdminPanel {
     clear(this.root);
     this.root.appendChild(el('div', { class: 'admin-shell', id: 'adminShell' }));
 
+    // 侧栏底部显示当前后台版本（从 /health 读）：排查"我明明更新了"时一眼就能确认跑的是哪一版
+    const versionLine = el('p', { class: 'admin-sidebar-version', text: '后台版本读取中…' });
+    fetchWithTimeout('/health', {}, 6000)
+      .then((res) => res.json())
+      .then((data) => {
+        versionLine.textContent = data?.version ? `后台版本 v${data.version}` : '后台版本未知';
+      })
+      .catch(() => {
+        versionLine.textContent = '后台版本未知';
+      });
+
     const sidebar = el('aside', { class: 'admin-sidebar' },
       el('p', { class: 'admin-sidebar-title', text: '配置区块' }),
       ...SECTIONS.map((section) =>
@@ -530,7 +541,8 @@ export class AdminPanel {
             event.preventDefault();
             this.selectSection(section.key);
           },
-        }))
+        })),
+      versionLine
     );
 
     const main = el('section', { class: 'admin-main', id: 'adminMain' });
@@ -579,6 +591,11 @@ export class AdminPanel {
 
   async selectSection(key) {
     this.activeSection = key;
+    // 每次切换发一个号：切换是异步的（要等配置接口），
+    // 如果期间用户又点了别的区块，旧的那次渲染必须放弃 ——
+    // 否则"刚点开的区块被上一次切换的结果覆盖回去"，看起来就是点了没反应。
+    const token = (this._sectionToken = (this._sectionToken || 0) + 1);
+
     qsa('.admin-nav-link', this.root).forEach((link) => {
       link.classList.toggle('is-active', link.dataset.section === key);
     });
@@ -608,6 +625,8 @@ export class AdminPanel {
     main.appendChild(el('div', { class: 'skeleton skeleton-line', style: { width: '40%' } }));
 
     const config = await this.loadConfig(true);
+    if (token !== this._sectionToken) return; // 期间又切换了区块：这次结果作废
+
     const data = config[section.key] ?? {};
 
     clear(main);
@@ -648,8 +667,8 @@ export class AdminPanel {
     const uploadInput = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', class: 'hidden' });
     const fontInput = el('input', { type: 'file', accept: '.ttf,.otf,.woff,.woff2', class: 'hidden' });
 
-    formEl.addEventListener('submit', async (event) => {
-      event.preventDefault();
+    const submitForm = async (event) => {
+      event?.preventDefault?.();
 
       let payload;
       if (!jsonArea.classList.contains('hidden') && jsonArea.value.trim()) {
@@ -672,6 +691,17 @@ export class AdminPanel {
       }
 
       await this.saveSection(section, payload, saveBtn);
+    };
+
+    formEl.addEventListener('submit', submitForm);
+
+    // 【重要】「保存配置」按钮在 header 里，也就是 **<form> 的兄弟节点**。
+    // type="submit" 的按钮只有在能解析出 form owner（在 <form> 内、或带 form 属性）时才提交表单，
+    // 否则点击等于什么都没发生 —— 这正是"改了设置、按保存没反应/不生效"的根因。
+    // 这里直接绑到同一个提交函数上；表单内的回车提交仍然走上面的 submit 事件。
+    saveBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      submitForm(event);
     });
 
     const hintEl = el('p', {

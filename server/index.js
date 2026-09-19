@@ -83,9 +83,18 @@ app.use(
 );
 
 // ---------- 健康检查 ----------
+const APP_VERSION = (() => {
+  try {
+    return require('../package.json').version;
+  } catch {
+    return 'unknown';
+  }
+})();
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
+    version: APP_VERSION,
     mode: isConfigured() ? 'live' : 'mock',
     uptime: Math.round(process.uptime()),
     sseClients: sseBus.clientCount(),
@@ -180,7 +189,7 @@ async function start() {
     const shownHost = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
 
     console.log('');
-    console.log('  原神功能快捷站 · 后端已启动');
+    console.log(`  原神功能快捷站 · 后端已启动（v${APP_VERSION}）`);
     console.log(`  ├─ 监听      ${HOST}:${PORT}${HOST === '0.0.0.0' ? '（所有网卡）' : ''}`);
     console.log(`  ├─ 地址      http://${shownHost}:${PORT}`);
     console.log(`  ├─ 健康检查  http://${shownHost}:${PORT}/health`);

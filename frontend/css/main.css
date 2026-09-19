@@ -1434,6 +1434,16 @@ body:not([data-view='home']) .scroll-hint {
 
 .admin-sidebar-title { font-size: 12px; letter-spacing: 0.16em; color: var(--text-muted); padding: 4px 10px 10px; }
 
+/* 侧栏底部的后台版本：排查"我明明更新了却没生效"时一眼看出跑的是哪一版 */
+.admin-sidebar-version {
+  margin-top: 18px;
+  padding: 14px 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
 .admin-nav-link {
   display: flex;
   align-items: center;

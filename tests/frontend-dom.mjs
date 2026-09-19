@@ -173,6 +173,35 @@ async function main() {
     window.document.documentElement.style.getPropertyValue('--gold'));
   check('favicon 由配置设置', (q('#faviconLink')?.getAttribute('href') || '').includes('favicon.svg'));
 
+  // 回归：前端曾有 5 分钟 localStorage TTL，缓存没过期就直接用缓存、根本不问服务端，
+  // 于是后台改完配置，另一个标签页 / 刚刷新的页面依旧显示旧内容（"配置不生效"）。
+  // 现在必须始终以服务端为准，本地缓存只做接口不可用时的兜底。
+  const configModule = await import(pathToFileURL(path.join(ROOT, 'frontend/js/config.js')).href);
+  window.localStorage.setItem(
+    'genshinHub.config.v1',
+    JSON.stringify({ savedAt: Date.now(), config: { site: { title: '缓存里的旧标题' } } })
+  );
+  const freshLoad = await configModule.loadConfig();
+  check('本地缓存很新也仍然以服务端为准（不再 5 分钟内一直吃缓存）',
+    freshLoad.source === 'api', `source=${freshLoad.source}`);
+  check('拿到的是服务端标题，而不是缓存里的旧标题',
+    freshLoad.config.site.title !== '缓存里的旧标题', freshLoad.config.site.title);
+  check('缓存里没有 TTL 短路逻辑（源码契约）',
+    !/CACHE_TTL_MS/.test(readSrc('frontend/js/config.js')), '');
+  window.localStorage.removeItem('genshinHub.config.v1');
+
+  // 后台保存后要通知**其它标签页**（否则这个窗口是新的、那个窗口还是旧的）
+  const mainSrcEarly = readSrc('frontend/js/main.js');
+  const adminSrcEarly = readSrc('frontend/js/admin.js');
+  check('后台保存会广播配置版本号供其它标签页同步',
+    /CONFIG_REVISION_KEY/.test(readSrc('frontend/js/config.js'))
+    && /addEventListener\('storage'/.test(mainSrcEarly)
+    && /CONFIG_REVISION_KEY/.test(mainSrcEarly), '');
+  check('后台侧栏显示当前版本（方便确认跑的是哪一版）',
+    /admin-sidebar-version/.test(adminSrcEarly) && /\/health/.test(adminSrcEarly)
+    && /\.admin-sidebar-version\s*\{/.test(mainCss));
+  check('/health 提供版本号', /version: APP_VERSION/.test(readSrc('server/index.js')));
+
   console.log('\n[阶段4] 首页画廊（七国 + 挪德卡莱 + 坎瑞亚 + 开场 + 角色特写）');
   check('渲染出 11 屏', qa('.gallery-slide').length === 11, `实际 ${qa('.gallery-slide').length}`);
   check('七国全部在列（蒙德/璃月/稻妻/须弥/枫丹/纳塔/至冬）', ['蒙德', '璃月', '稻妻', '须弥', '枫丹', '纳塔', '至冬']
@@ -689,6 +718,15 @@ async function main() {
   check('collectForm 不再把数组条目的值写到顶层（避免串值）',
     /input\.closest\('\.repeat-item'\)/.test(adminJs), '');
   check('CSS 定义了错误框与红框高亮', /\.form-error\s*\{/.test(mainCss) && /\.has-error/.test(mainCss));
+
+  // 回归（重要）：通用区块的「保存配置」按钮在 header 里，是 <form> 的**兄弟节点**。
+  // type="submit" 的按钮找不到 form owner 时点击等于没反应 —— 曾经导致所有通用区块
+  // 根本存不下去（界面还一点报错都没有）。必须显式绑到同一个提交函数上。
+  check('「保存配置」按钮显式绑定了提交（不依赖 type=submit 的 form owner）',
+    /saveBtn\.addEventListener\('click'/.test(adminJs) && /const submitForm = async/.test(adminJs)
+    && /formEl\.addEventListener\('submit', submitForm\)/.test(adminJs), '');
+  check('区块切换有防竞态（旧请求不会覆盖新页面）',
+    /_sectionToken/.test(adminJs) && /token !== this\._sectionToken/.test(adminJs));
 
   check('无未捕获运行时异常', runtimeErrors.length === 0, runtimeErrors.slice(0, 3).join(' | '));
   const fatalConsole = consoleErrors.filter((m) => !/favicon|404/i.test(m));

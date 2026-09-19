@@ -1,8 +1,9 @@
-// js/config.js — 站点配置加载（后端优先 → localStorage 缓存 → 内置默认值）
+// js/config.js — 站点配置加载（后端优先 → localStorage 兜底 → 内置默认值）
 import { fetchWithTimeout } from './util.js';
 
 const STORAGE_KEY = 'genshinHub.config.v1';
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟内优先用缓存，避免每次刷新都请求
+/** 跨标签页同步用的版本号：后台保存后写一次，其它标签页靠 storage 事件收到通知 */
+const REVISION_KEY = 'genshinHub.config.rev';
 
 /** 内置兜底配置：后端完全不可用时站点仍可打开 */
 export const DEFAULT_CONFIG = {
@@ -88,7 +89,7 @@ export const DEFAULT_CONFIG = {
   music: { url: '', volume: 0.35, autoplay: false },
   download: { cards: [] },
   about: { sections: [] },
-  news: { codes: [], banners: [], links: [] },
+  links: { title: '快捷入口', subtitle: '', items: [] },
   fonts: { custom: [] },
 };
 
@@ -124,17 +125,19 @@ function writeCache(config) {
 }
 
 /**
- * 加载配置：后端 → 缓存 → 默认值
- * @param {{ force?: boolean }} options force=true 时忽略 TTL 缓存
+ * 加载配置：**始终以服务端为准**，本地缓存只在接口不可用时兜底。
+ *
+ * 这里以前有个 5 分钟 TTL：缓存没过期就直接用缓存、连请求都不发。
+ * 后果是后台改完配置，另一个标签页 / 刚刷新的页面在 5 分钟内依旧渲染旧配置，
+ * 看起来就是"保存了但不生效"。配置接口本身就带 ETag（没变返回 304），
+ * 每次问一下服务端几乎没有代价，所以 TTL 直接去掉了。
+ *
+ * @param {{ force?: boolean }} options 保留参数以兼容旧调用（现在无论如何都是最新）
  * @returns {Promise<{config: object, source: 'api'|'cache'|'default'}>}
  */
 export async function loadConfig({ force = false } = {}) {
   const cached = readCache();
-  const cacheFresh = cached && Date.now() - cached.savedAt < CACHE_TTL_MS;
-
-  if (!force && cacheFresh) {
-    return { config: mergeConfig(DEFAULT_CONFIG, cached.config), source: 'cache' };
-  }
+  void force;
 
   try {
     const res = await fetchWithTimeout('/api/config', { headers: { Accept: 'application/json' } }, 6000);
@@ -152,14 +155,22 @@ export async function loadConfig({ force = false } = {}) {
   }
 }
 
-/** 清空本地配置缓存（管理后台保存后调用，确保下次刷新拿到新配置） */
+/**
+ * 清空本地配置缓存并广播一个版本号。
+ * 后台保存后调用：本标签页立即重渲染，**其它已打开的标签页**会收到 storage 事件，
+ * 也去重新拉一次配置（否则会出现"这个标签页是新的、那个标签页还是旧的"）。
+ */
 export function invalidateConfigCache() {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(REVISION_KEY, `${Date.now()}`);
   } catch {
-    /* ignore */
+    /* 隐私模式下忽略 */
   }
 }
+
+/** 其它标签页更新配置时的事件键（main.js 用它监听） */
+export const CONFIG_REVISION_KEY = REVISION_KEY;
 
 /** 把主题配置写入 CSS 变量 */
 export function applyTheme(theme = {}) {
