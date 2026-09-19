@@ -73,8 +73,30 @@
 
   .nav-link::after { bottom: 14px; }
 
-  /* 画廊：纵向堆叠 + 原生滚动，手机上就是一屏一屏往下滑 */
-  .gallery-slide { min-height: 100vh; min-height: 100svh; }
+  /* 画廊：纵向堆叠 + 滚动吸附，手机上滑一下就是一屏 */
+  .gallery { height: 100vh; height: 100svh; }
+  .gallery-slide { min-height: 100%; }
+
+  /* 手机文字居中 → 遮罩改成上下压暗，文字底衬居中 */
+  .slide-bg::after {
+    background: linear-gradient(
+      180deg,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.88)) 0%,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.5)) 30%,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.58)) 66%,
+      rgb(5 8 18 / var(--scrim, 0.9)) 100%
+    );
+  }
+
+  .slide-content::before {
+    inset: -10% -6%;
+    background: radial-gradient(
+      ellipse at 50% 50%,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.8)) 0%,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.55)) 50%,
+      rgb(5 8 18 / 0) 78%
+    );
+  }
 
   .slide-content {
     padding: calc(var(--topbar-h) + 36px) 22px clamp(56px, 12vh, 96px);

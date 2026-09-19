@@ -65,6 +65,7 @@ export const DEFAULT_CONFIG = {
     downColor: '#ef4444',
     radius: 14,
     cardShadow: '0 12px 40px rgba(0, 0, 0, 0.45)',
+    overlayStrength: 0.9,
   },
   navigation: {
     items: [
@@ -175,6 +176,8 @@ export function applyTheme(theme = {}) {
     '--down': theme.downColor,
     '--radius': theme.radius !== undefined ? `${theme.radius}px` : undefined,
     '--card-shadow': theme.cardShadow,
+    // 背景遮罩强度：画廊文字可读性的总开关
+    '--scrim': theme.overlayStrength !== undefined ? String(theme.overlayStrength) : undefined,
   };
 
   for (const [name, value] of Object.entries(map)) {

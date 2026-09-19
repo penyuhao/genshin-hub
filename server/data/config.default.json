@@ -131,7 +131,8 @@
     "upColor": "#4ade80",
     "downColor": "#ef4444",
     "radius": 14,
-    "cardShadow": "0 12px 40px rgba(0, 0, 0, 0.45)"
+    "cardShadow": "0 12px 40px rgba(0, 0, 0, 0.45)",
+    "overlayStrength": 0.9
   },
   "navigation": {
     "items": [

@@ -18,6 +18,9 @@
   --radius: 14px;
   --card-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 
+  /* 画廊背景遮罩强度（后台「主题编辑 → 背景遮罩强度」可调，越大文字越清楚） */
+  --scrim: 0.9;
+
   /* 尺寸 */
   --topbar-h: 66px;
   --container: 1180px;
@@ -96,7 +99,7 @@ p { margin: 0; }
 .layer-aurora {
   z-index: 1;
   inset: -180px -20px;
-  opacity: 0.5;
+  opacity: 0.34;   /* 压低环境光，避免和画廊背景一起"花" */
   background:
     linear-gradient(102deg, transparent 30%, rgba(127, 216, 216, 0.05) 45%, transparent 60%),
     linear-gradient(78deg, transparent 40%, rgba(232, 200, 119, 0.045) 55%, transparent 70%);
@@ -342,25 +345,40 @@ p { margin: 0; }
   pointer-events: none;
 }
 
-/* ---------- 画廊（纵向堆叠 · 原生滚动）----------
-   每一屏都是一屏高的普通区块，页面自然向下滚动：
-   不劫持滚轮、无"界面切换"感，刷新后滚动位置由浏览器正确恢复。 */
+/* ---------- 画廊（滚动吸附 · 一下一屏 · 原生滚动）----------
+   画廊自己是滚动容器，并且开启 scroll-snap-type: y mandatory：
+     • 桌面：滚轮滚一下 → 直接吸附到下一屏（不是慢慢滚过去）
+     • 手机：手指滑一下 → 同样吸附到下一屏
+     • 全程不劫持滚轮事件，滚动位置由浏览器管理，刷新后依然正确
+   滑到最后一屏后继续滑，滚动会自然交给页面 → 画廊下方的服务状态/快捷入口 */
 .gallery-stage {
   position: relative;
 }
 
 .gallery {
   position: relative;
+  height: 100vh;
+  height: 100svh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-y: auto;   /* 到底后把滚动交给页面（一条下来） */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;         /* 隐藏内层滚动条，避免出现两条滚动条 */
 }
+
+.gallery::-webkit-scrollbar { width: 0; height: 0; }
 
 .gallery-slide {
   position: relative;
   display: grid;
   align-items: center;
-  min-height: 100vh;
-  min-height: 100svh;      /* 支持 svh 的浏览器用动态视口高度，避免手机地址栏跳动 */
-  overflow: hidden;        /* 裁掉背景 Ken Burns 的溢出 */
-  isolation: isolate;      /* 让背景层与内容层的层叠上下文互相独立 */
+  min-height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;      /* 一次手势只前进一屏，不跳过 */
+  overflow: hidden;              /* 裁掉背景 Ken Burns 的溢出 */
+  isolation: isolate;
 }
 
 .slide-bg {
@@ -371,18 +389,38 @@ p { margin: 0; }
   background-position: center calc(50% + var(--parallax-y, 0px));
   transform: scale(1.04);
   transition: opacity 1s ease;
+  /* 压低背景的对比与饱和度，让文字更清楚、画面不那么"花" */
+  filter: saturate(0.82) brightness(0.78) contrast(0.94);
 }
 
-.gallery-slide.is-active .slide-bg { animation: kenBurns 26s ease-in-out infinite alternate; }
-
+/* 文字区遮罩：--scrim 可在后台「主题编辑 → 背景遮罩强度」调节（越大越清楚、背景越暗）
+   先给不支持 rgb(r g b / calc()) 的老浏览器一个固定值回退 */
 .slide-bg::after {
   content: '';
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(6, 9, 20, 0.92) 0%, rgba(6, 9, 20, 0.55) 42%, rgba(6, 9, 20, 0.15) 70%, rgba(6, 9, 20, 0.55) 100%),
-    linear-gradient(180deg, rgba(6, 9, 20, 0.85) 0%, transparent 34%, rgba(6, 9, 20, 0.9) 100%);
+    linear-gradient(96deg, rgba(5, 8, 18, 0.92) 0%, rgba(5, 8, 18, 0.85) 26%, rgba(5, 8, 18, 0.54) 52%, rgba(5, 8, 18, 0.25) 76%, rgba(5, 8, 18, 0.45) 100%),
+    linear-gradient(180deg, rgba(5, 8, 18, 0.77) 0%, rgba(5, 8, 18, 0.18) 28%, rgba(5, 8, 18, 0.22) 62%, rgba(5, 8, 18, 0.9) 100%);
+  background:
+    linear-gradient(
+      96deg,
+      rgb(5 8 18 / var(--scrim, 0.9)) 0%,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.94)) 26%,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.6)) 52%,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.28)) 76%,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.5)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.85)) 0%,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.2)) 28%,
+      rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.24)) 62%,
+      rgb(5 8 18 / var(--scrim, 0.9)) 100%
+    );
 }
+
+.gallery-slide.is-active .slide-bg { animation: kenBurns 26s ease-in-out infinite alternate; }
 
 .slide-content {
   position: relative;
@@ -392,12 +430,31 @@ p { margin: 0; }
   padding: calc(var(--topbar-h) + 24px) clamp(20px, 5vw, 64px) clamp(72px, 12vh, 132px);
 }
 
+/* 文字底衬：在文字块后面铺一层柔和的暗色光晕，无论背景多花都保证可读 */
+.slide-content::before {
+  content: '';
+  position: absolute;
+  inset: -8% -10% -6% -8%;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 28px;
+  background: radial-gradient(
+    ellipse at 22% 50%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.78)) 0%,
+    rgb(5 8 18 / calc(var(--scrim, 0.9) * 0.5)) 46%,
+    rgb(5 8 18 / 0) 76%
+  );
+  filter: blur(14px);
+}
+
 .slide-title {
   font-size: clamp(46px, 11vw, 132px);
   line-height: 1.02;
   letter-spacing: 0.06em;
   color: var(--gold);
-  text-shadow: 0 6px 40px rgba(0, 0, 0, 0.6);
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.75),
+    0 8px 44px rgba(0, 0, 0, 0.6);
   margin-bottom: 10px;
 }
 
@@ -411,16 +468,19 @@ p { margin: 0; }
 .slide-subtitle {
   font-size: clamp(14px, 2.4vw, 26px);
   color: var(--text);
-  opacity: 0.9;
+  opacity: 0.92;
   margin-bottom: 14px;
   text-transform: uppercase;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
 }
 
 .slide-desc {
   max-width: 40ch;
   font-size: clamp(14px, 1.5vw, 17px);
-  color: var(--text-muted);
+  color: var(--text);
+  opacity: 0.86;
   letter-spacing: 0.06em;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85);
 }
 
 .slide-cta { margin-top: 30px; }

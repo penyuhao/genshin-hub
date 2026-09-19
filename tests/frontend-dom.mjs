@@ -1,4 +1,4 @@
-﻿// tests/frontend-dom.mjs — 前端 DOM 集成测试
+// tests/frontend-dom.mjs — 前端 DOM 集成测试
 // 思路：用 jsdom 提供浏览器环境，直接 import 真实前端模块，走真实后端接口，
 //      断言各视图渲染结果（阶段3/4/6/7/3.6 的验收标准）。
 // 运行： node tests/frontend-dom.mjs
@@ -184,17 +184,25 @@ async function main() {
   check('月亮元素存在且可见', q('#moon')?.classList.contains('is-visible'));
   check('最后一屏有「进入网站」按钮', qa('.gallery-slide')[10]?.textContent.includes('进入网站'));
 
-  console.log('\n[阶段4+] 主界面为「纵向堆叠 + 原生滚动」（非界面切换）');
+  console.log('\n[阶段4+] 主界面为「滚动吸附：滚一下就切一屏」');
   const fsMod = await import('node:fs');
   const mainCss = fsMod.readFileSync(path.join(ROOT, 'frontend/css/main.css'), 'utf-8');
   const responsiveCss = fsMod.readFileSync(path.join(ROOT, 'frontend/css/responsive.css'), 'utf-8');
 
   const slideRule = mainCss.slice(mainCss.indexOf('.gallery-slide {'), mainCss.indexOf('.slide-bg {'));
-  check('每一屏是文档流区块（min-height 一屏高）', /min-height:\s*100(vh|svh)/.test(slideRule), slideRule.slice(0, 80).replace(/\s+/g, ' '));
-  check('每一屏不再是绝对定位叠放', !/position:\s*absolute/.test(slideRule), slideRule.slice(0, 80).replace(/\s+/g, ' '));
-  check('画廊容器不再固定高度', !/\.gallery-stage\s*\{[^}]*height:\s*100(vh|svh)/.test(mainCss));
+  const galleryRule = mainCss.slice(mainCss.indexOf('.gallery {'), mainCss.indexOf('.gallery-slide {'));
+  check('画廊是滚动吸附容器（滚一下就切一屏）', /scroll-snap-type:\s*y mandatory/.test(galleryRule),
+    galleryRule.replace(/\s+/g, ' ').slice(0, 110));
+  check('画廊自身一屏高（内部滚动，页面继续往下）', /height:\s*100(vh|svh)/.test(galleryRule));
+  check('每一屏吸附到容器顶部', /scroll-snap-align:\s*start/.test(slideRule));
+  check('一次手势只前进一屏（不跳屏）', /scroll-snap-stop:\s*always/.test(slideRule));
+  check('每一屏占满容器高度', /min-height:\s*100%/.test(slideRule), slideRule.replace(/\s+/g, ' ').slice(0, 90));
+  check('每一屏不再是绝对定位叠放', !/position:\s*absolute/.test(slideRule));
   check('DOM 结构为纵向堆叠的 section', qa('#gallery > .gallery-slide').length === 11,
     `实际 ${qa('#gallery > .gallery-slide').length}`);
+  check('背景遮罩强度可配置（--scrim 变量）', /--scrim:/.test(mainCss) && mainCss.includes('var(--scrim'), '');
+  check('文字有底衬与阴影（保证可读性）', /\.slide-content::before/.test(mainCss) && /text-shadow/.test(mainCss));
+  check('背景做了降噪处理（降饱和/降亮度）', /saturate\(0\.82\)/.test(mainCss));
 
   // 滚动交互：圆点与提示都走原生滚动（scrollIntoView）
   const scrollCalls = [];
@@ -231,8 +239,10 @@ async function main() {
   window.Element.prototype.scrollIntoView = originalScrollIntoView;
 
   console.log('\n[阶段4++] 手机端布局契约');
-  check('手机端每屏仍是一屏高', /@media \(max-width: 767px\)[\s\S]*?\.gallery-slide\s*\{[^}]*min-height:\s*100(vh|svh)/.test(responsiveCss));
-  check('手机端隐藏右侧圆点导航（原生滚动即可）', /@media \(max-width: 767px\)[\s\S]*?\.gallery-dots\s*\{\s*display:\s*none/.test(responsiveCss));
+  check('手机端画廊一屏高', /@media \(max-width: 767px\)[\s\S]*?\.gallery\s*\{[^}]*height:\s*100(vh|svh)/.test(responsiveCss));
+  check('手机端每屏占满容器', /@media \(max-width: 767px\)[\s\S]*?\.gallery-slide\s*\{[^}]*min-height:\s*100%/.test(responsiveCss));
+  check('手机端遮罩改为上下压暗（文字居中）', /@media \(max-width: 767px\)[\s\S]*?\.slide-bg::after/.test(responsiveCss));
+  check('手机端隐藏右侧圆点导航', /@media \(max-width: 767px\)[\s\S]*?\.gallery-dots\s*\{\s*display:\s*none/.test(responsiveCss));
   check('手机端状态指标排成两列', /\.status-metrics\s*\{[^}]*grid-template-columns:\s*repeat\(2/.test(responsiveCss));
   check('手机端标题字号有收敛（不溢出）', /@media \(max-width: 767px\)[\s\S]*?\.slide-title\s*\{[^}]*font-size:\s*clamp/.test(responsiveCss));
 

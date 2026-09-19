@@ -111,6 +111,8 @@ const themeSchema = z.object({
   downColor: hexColor,
   radius: z.number().int().min(0).max(48).optional(),
   cardShadow: cleanStr(120).optional(),
+  // 画廊背景遮罩强度：越大文字越清楚、背景越暗（0.2 ~ 1）
+  overlayStrength: z.number().min(0.2).max(1).optional(),
 });
 
 // ---------- 导航 ----------

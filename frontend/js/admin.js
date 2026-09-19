@@ -86,6 +86,16 @@ const SECTIONS = [
       { key: 'downColor', label: '离线红', type: 'color' },
       { key: 'radius', label: '圆角（px）', type: 'number', min: 0, max: 48 },
       { key: 'cardShadow', label: '卡片阴影（CSS box-shadow）', type: 'text' },
+      {
+        key: 'overlayStrength',
+        label: '画廊背景遮罩强度（0.2 ~ 1）',
+        type: 'number',
+        min: 0.2,
+        max: 1,
+        step: 0.05,
+        default: 0.9,
+        hint: '越大文字越清楚、背景越暗；觉得背景太花就调到 0.95 ~ 1',
+      },
     ],
   },
   {
@@ -622,12 +632,21 @@ export class AdminPanel {
       area.value = value ?? '';
       wrap.appendChild(area);
     } else if (field.type === 'number') {
+      const initial = value ?? field.default ?? 0;
+      formState[field.key] = Number(initial);
       const input = el('input', {
-        class: 'input', type: 'number', value: value ?? 0,
+        class: 'input', type: 'number', value: String(initial),
         min: field.min, max: field.max, step: field.step ?? 1, dataset: { key: field.key },
-        oninput: () => { formState[field.key] = Number(input.value); },
+        oninput: () => {
+          formState[field.key] = Number(input.value);
+          // 遮罩强度支持实时预览
+          if (field.key === 'overlayStrength') {
+            document.documentElement.style.setProperty('--scrim', String(input.value));
+          }
+        },
       });
       wrap.appendChild(input);
+      if (field.hint) wrap.appendChild(el('span', { class: 'field-hint', text: field.hint }));
     } else if (field.type === 'color') {
       const input = el('input', {
         class: 'input-color', type: 'color', value: value || '#000000', dataset: { key: field.key },
