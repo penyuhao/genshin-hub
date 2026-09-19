@@ -78,7 +78,8 @@ DATA_DIR/                    默认 server/data，可用环境变量覆盖
 ├── backups/                 配置快照（每次保存前自动生成，保留 20 份）
 ├── uploads/
 │   ├── images/              后台上传的背景图 / Logo
-│   └── fonts/               后台上传的架空文字字体
+│   ├── fonts/               后台上传的架空文字字体
+│   └── videos/              后台上传的画廊背景视频（支持 Range 请求）
 └── logs/                    （可选）PM2 等日志目录
 ```
 
@@ -112,8 +113,11 @@ DATA_DIR/                    默认 server/data，可用环境变量覆盖
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `DATA_DIR` | `server/data` | 运行时数据根目录（容器挂卷就改这个） |
-| `UPLOAD_DIR` | `DATA_DIR/uploads` | 上传文件目录 |
+| `UPLOAD_DIR` | `DATA_DIR/uploads` | 上传文件目录（`images/`、`fonts/`、`videos/`） |
 | `FRONTEND_DIR` | `frontend` | 静态资源目录 |
+| `MAX_IMAGE_MB` | `5` | 背景图/Logo 上传上限 |
+| `MAX_FONT_MB` | `12` | 字体上传上限 |
+| `MAX_VIDEO_MB` | `64` | **背景视频上传上限**（配大文件时记得同步放宽反代限制） |
 
 ### 数据源（Uptime Kuma）
 
@@ -304,7 +308,11 @@ location / {                      # 其余请求
 - **`TRUST_PROXY=1`**（默认）让限流拿到真实客户端 IP；直连公网请设 `false` 防止伪造 `X-Forwarded-For` 绕过限流
 - 上 HTTPS 后设 `NODE_ENV=production`，自动启用 HSTS
 - 把正式域名加进 `ALLOWED_ORIGIN`（同域部署可保持默认）
-- 客户端上传上限 ≥ 12MB（字体上传上限）
+- 客户端上传上限要 **≥ 服务端上限**：图片 5MB / 字体 12MB / 视频 64MB（都可用 `MAX_*_MB` 调整），
+  Nginx 需写 `client_max_body_size 80m;`，否则会先被反代用 **413** 拦掉（前端会提示"文件过大"）
+- **视频背景建议**：MP4（H.264 + AAC，或纯视频无音轨）、1080p、10~20 秒、5MB 以内；
+  视频走同源 `/uploads/videos/*` 静态服务并支持 **Range 请求**（播放器可拖进度、不必整段下载），
+  若前面还有 CDN，记得让 CDN 透传 `Range` 头并缓存 `206`
 
 ---
 
@@ -369,6 +377,9 @@ cp server/data/config.json ~/config-$(date +%F).json
 | SSE 不推送（点开面板一直"连接中"） | 反代没关缓冲。照抄第五节配置 |
 | 后台登录成功但刷新又变未登录 | 浏览器禁用了 localStorage，或跨域访问导致令牌未保存。用同域访问 |
 | 上传图片报 500 / EROFS | 数据目录只读。检查 `DATA_DIR` 挂载与权限 |
-| 忘记管理员密码 | 删掉 `DATA_DIR/auth.json` 重启 → 回退到 `.env` 的 `ADMIN_PASSWORD`；两者都没有会重新生成并打印 |
+| 上传视频报 413 | 反代先拦了：把 `client_max_body_size` 加到 ≥ `MAX_VIDEO_MB`（示例配置为 `80m`） |
+| 上传视频提示"不是有效的视频容器" | 文件类型不符（改扩展名的假视频会被服务端识别并拒收）。转成 H.264 的 MP4 再传 |
+| 背景视频不自动播放 | 浏览器策略：必须**静音**才能自动播放（后台开关默认开）；iOS 低电量模式也会拒绝，此时显示封面图 |
+| 忘了管理员密码 | 删掉 `DATA_DIR/auth.json` 重启 → 回退到 `.env` 的 `ADMIN_PASSWORD`；两者都没有会重新生成并打印 |
 | 中文乱码 / 时间不对 | 容器时区：设 `TZ=Asia/Shanghai` |
 | 页面样式正常但没动画 | 系统开了"减少动态效果"，或后台「功能开关」里关掉了对应模块 |

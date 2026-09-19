@@ -47,10 +47,22 @@
   to { opacity: 0.99; transform: translate3d(0, 0, 0); }
 }
 
-@keyframes metalShine {
-  0% { background-position: 160% 50%; }
-  55% { background-position: -60% 50%; }
-  100% { background-position: -60% 50%; }
+/* 光幕扫过：慢进慢出，整段扫完只占周期的前 2/3，后面留一段安静期
+   （恒定速度的匀速硬扫才是"突兀"的来源） */
+@keyframes shineSweep {
+  0% { transform: translate3d(-70%, 0, 0) skewX(-9deg); opacity: 0; }
+  12% { opacity: 0.8; }
+  46% { opacity: 1; }
+  68% { transform: translate3d(55%, 0, 0) skewX(-9deg); opacity: 0; }
+  100% { transform: translate3d(55%, 0, 0) skewX(-9deg); opacity: 0; }
+}
+
+/* 与光幕同周期的标题光晕：光过时最亮、光走时变暗 */
+@keyframes haloBreath {
+  0%, 100% { opacity: 0.34; transform: scale(0.98); }
+  30% { opacity: 0.6; transform: scale(1.01); }
+  52% { opacity: 0.78; transform: scale(1.035); }
+  76% { opacity: 0.42; transform: scale(1); }
 }
 
 /* 渐变填充特效：渐变色缓慢流动 */

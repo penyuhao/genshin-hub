@@ -91,6 +91,14 @@ const slideSchema = z.object({
   subtitle: cleanStr(200).optional(),
   desc: cleanStr(300).optional(),
   bgImage: safeUrl,
+  /**
+   * 背景视频（可选）：填了就用视频当背景，bgImage 自动降级为封面/加载占位。
+   * 只允许站内 /uploads/videos/... 或 https 直链，避免被塞进 data:/javascript: 之类的东西。
+   */
+  bgVideo: optionalUrl,
+  videoLoop: z.boolean().optional(), // 循环播放（默认开）
+  videoMuted: z.boolean().optional(), // 静音（浏览器自动播放的前提，默认开）
+  videoOpacity: z.number().min(0.2).max(1).optional(), // 视频不透明度
   font: fontName.optional(),
   textColor: hexColor.optional(),
   cta: cleanStr(40).optional(), // 「进入网站」按钮文案，为空则不显示

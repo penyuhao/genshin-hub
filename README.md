@@ -6,17 +6,18 @@
 ![license](https://img.shields.io/badge/license-MIT-e8c877)
 ![node](https://img.shields.io/badge/node-%3E%3D18-7fd8d8)
 ![frontend](https://img.shields.io/badge/frontend-vanilla%20ESM-e8c877)
-![tests](https://img.shields.io/badge/tests-52%20%2B%2067%20passing-4ade80)
+![tests](https://img.shields.io/badge/tests-26%20%2B%2022%20%2B%20136%20passing-4ade80)
 ![audit](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-4ade80)
 
 **亮点**
 
 - 📦 **部署到任何地方**：零构建、零外部依赖（无数据库 / 无 Redis），Node ≥18 即可跑；**首次启动自动生成 JWT 密钥与随机管理员密码**，不写 `.env` 也能用；数据全部集中在 `DATA_DIR`，容器/PaaS/NAS 挂一个卷就行 → [部署指南](docs/deployment.md)
 - 🎴 **11 屏沉浸式画廊**：开场「原神」+ 七国（蒙德/璃月/稻妻/须弥/枫丹/纳塔/至冬）+ 挪德卡莱 + 坎瑞亚 + 哥伦比娅；**滚动吸附**——滚轮滚一下就切一整屏、手机滑一下切一屏（原生 `scroll-snap`，不劫持滚轮，刷新后位置正确）
+- 🎬 **背景可以是视频**：每屏独立上传 MP4/WebM（校验容器特征码、支持 Range 拖进度），当前屏才播、相邻屏才预载，封面图兜底
 - ✨ **五层动画系统**：Three.js Shader 星空（10000 点独立闪烁）、三环反向星环、月亮自转呼吸、鼠标光晕与粒子拖尾、点击涟漪、Ken Burns、视差滚动
 - 🔤 **7 套 HoYo-Glyphs 架空文字**：提瓦特/稻妻/须弥/坎瑞亚（含层岩巨渊变体）/赤冠/Font Ainee，**11 屏轮换分配、相邻两屏必不相同**；
   中文自动回退衬线（HoYo 字体不含汉字），但每屏标题的字距/字重/描边/倾斜各不相同，滚动时视觉上"每屏换一种字"
-- ✨ **标题节奏**：逐字上浮（无模糊，避免看起来像"字形在变"）→ **紧接着光幕扫过**（延迟 0.72s，与逐字动画收尾对齐）
+- ✨ **标题节奏**：逐字上浮（无模糊，避免看起来像"字形在变"）→ **紧接着柔光扫过**（三层柔光 + 模糊 + 上下淡出，同周期光晕呼吸）
 - 📊 **Kuma 状态面板**：后端合并数据 + 30s 缓存 + `stale` 降级 + SSE 实时推送 + 心跳折线图
 - 🛠 **全可视化后台**：站点/画廊/主题/导航/开关/音乐/下载/关于/快捷入口/字体/**数据源**/**账号安全**/备份还原，共 13 个区块，改完即时生效
 - 🔐 **安全不妥协**：CSP、CORS 白名单、双层限流、**图形验证码**、zod 校验、JWT + bcrypt、改密吊销旧令牌、前端零密钥
@@ -105,8 +106,9 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"   # JWT
 | 文字可读性保障 | 可调背景遮罩（`--scrim`）+ 文字底衬光晕 + 双层阴影 + 背景降饱和/降亮度 | `css/main.css`、后台「主题编辑」 |
 | 视口级导航（圆点/下滚提示） | 圆点在 body 层级（不受视图 transform 影响），滚动时自动高亮当前屏；提示只在首屏出现 | `index.html`、`css/main.css` |
 | 标题逐字浮现（错开 60ms） | 每个汉字一个 `<span class="char">` + 递增延迟 | `gallery.js#animateTitle` |
-| 金属光扫过 | `.title-shine` 屏幕混合高光带循环扫过 | `animations.css#metalShine` |
-| Ken Burns | 激活屏背景 26s 缓慢缩放平移 | `animations.css#kenBurns` |
+| 光幕扫过（柔光版） | 三层柔光（宽辉光 + 亮芯 + 冷暖色偏）叠加 + 整体模糊 + 上下 mask 淡出，只动 `transform/opacity`；同周期标题光晕呼吸，光像"穿过"文字而不是贴在文字上 | `animations.css#shineSweep`、`#haloBreath` |
+| **背景视频** | 每屏可传视频当背景：当前屏播放、相邻屏预载、其余屏连 `src` 都不挂（省流量）；封面图兜底；标签页切走自动暂停；`prefers-reduced-motion` 下不自动播放 | `gallery.js#syncVideos`、`routes/media.js` |
+| Ken Burns | 激活屏背景 26s 缓慢缩放平移（图片与视频一视同仁） | `animations.css#kenBurns` |
 | 视差滚动 | 背景层位移为内容的一半（`--parallax-y`） | `effects.js#setupParallax` |
 | 鼠标光晕 + 粒子拖尾 | CSS 变量跟随 + 前景 Canvas 粒子生命周期 | `effects.js` |
 | 点击涟漪 | 点击处扩散金色圆环 | `effects.js#setupRipples` |
@@ -128,6 +130,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"   # JWT
 - **可选 Socket 通道**：`KUMA_SOCKET_ENABLED=true` 且提供账号密码时，走 Kuma Socket.IO 推送（阶段 10）
 - **配置后台**：11 个区块可视化编辑（站点/画廊/主题/导航/功能开关/音乐/下载/关于/快捷入口/字体/备份），每次保存前自动备份（保留 20 份，可一键还原）
 - **图片与字体上传**：图片 ≤5MB（png/jpg/webp/gif）、字体 ≤12MB（ttf/otf/woff/woff2），服务端生成文件名，杜绝路径穿越
+- **背景视频上传**：mp4/m4v/webm/ogv/mov，默认 ≤64MB（`MAX_VIDEO_MB` 可调）；**除扩展名外还会校验容器特征码**（`ftyp` / `1A 45 DF A3` / `OggS`），伪造扩展名的文件会被拒并立即删除，不留垃圾在数据卷里
 
 ### 安全（阶段 1、9、11）
 
@@ -237,6 +240,7 @@ docs/
 | `DATA_DIR` | `server/data` | **运行时数据根目录**（配置/凭据/备份/上传/密钥），容器挂卷改这里 |
 | `UPLOAD_DIR` | `DATA_DIR/uploads` | 上传文件目录 |
 | `FRONTEND_DIR` | `frontend` | 静态资源目录 |
+| `MAX_IMAGE_MB` / `MAX_FONT_MB` / `MAX_VIDEO_MB` | `5` / `12` / `64` | 三类上传的体积上限（MB）；反代还需同步放宽（Nginx `client_max_body_size`） |
 
 ### 数据源与安全
 
@@ -258,7 +262,7 @@ docs/
 | `CAPTCHA_BYPASS_TOKEN` | 空 | 自动化测试旁路令牌，**生产留空** |
 
 > 运行时数据都在 `DATA_DIR`（默认 `server/data`）下，已被 `.gitignore` 排除：
-> `config.json`（站点配置）、`kuma.json`（数据源密钥）、`auth.json`（管理员 bcrypt 哈希）、`secrets.json`（自动生成的 JWT 密钥）、`backups/`（配置快照）、`uploads/`（上传的图片与字体）。
+> `config.json`（站点配置）、`kuma.json`（数据源密钥）、`auth.json`（管理员 bcrypt 哈希）、`secrets.json`（自动生成的 JWT 密钥）、`backups/`（配置快照）、`uploads/`（上传的图片、字体与背景视频）。
 
 ### 生成 bcrypt 密码哈希（生产推荐）
 
@@ -320,7 +324,8 @@ KUMA_API_KEY=uk1_xxxxxxxxxxxxxxxx
 | POST | `/api/settings/kuma/test` | 管理员 | 测试 Kuma 连接（不落盘） |
 | PUT | `/api/config` · `/api/config/:section` | 管理员 | 更新配置（zod 校验 + 自动备份） |
 | GET | `/api/config/backups` · POST `/api/config/restore` | 管理员 | 快照列表 / 一键还原 |
-| POST | `/api/uploads/image` · `/api/uploads/font` | 管理员 | 上传图片 / 字体 |
+| POST | `/api/uploads/image` · `/api/uploads/font` · `/api/uploads/video` | 管理员 | 上传图片 / 字体 / 背景视频（视频校验容器特征码） |
+| GET | `/api/uploads/limits` | 公开 | 三类上传的体积上限与允许扩展名（后台提示用） |
 
 ---
 
@@ -331,7 +336,7 @@ KUMA_API_KEY=uk1_xxxxxxxxxxxxxxxx
 | 区块 | 能改什么 |
 |---|---|
 | 站点设置 | 标题、副标题、Logo、favicon、页脚 |
-| 画廊管理 | **每屏独立定制**：标题/副标题/描述、背景图（可直接上传）、字体、标题颜色、**6 种标题特效**（光幕/渐变/霓虹/描边/错位/纯色）、**水平对齐**（左中右）、**垂直位置**（上中下）、**位置微调 ±45%**、**字号倍率 0.5~1.8**、**本屏遮罩强度**、**Ken Burns 开关**、按钮文案与跳转；支持增删与排序 |
+| 画廊管理 | **每屏独立定制**：标题/副标题/描述、背景图（可直接上传）、**背景视频（上传或填直链，含静音 / 循环 / 不透明度开关）**、字体、标题颜色、**6 种标题特效**（光幕/渐变/霓虹/描边/错位/纯色）、**水平对齐**（左中右）、**垂直位置**（上中下）、**位置微调 ±45%**、**字号倍率 0.5~1.8**、**本屏遮罩强度**、**Ken Burns 开关**、按钮文案与跳转；支持增删与排序 |
 | 主题编辑 | 9 个配色 + 圆角 + 卡片阴影 + **背景遮罩强度（觉得背景花就拉高）**，**实时预览** |
 | 导航管理 | 导航项文案、顺序、显隐 |
 | 功能开关 | 星空 / 星环 / 月亮 / 粒子 / 鼠标层 / 视差 / Kuma 面板 / 背景音乐 |
@@ -443,9 +448,10 @@ KUMA_API_KEY=uk1_xxxxxxxxxxxxxxxx
 
 ```bash
 npm test                  # 跨平台冒烟测试（Windows / Linux / macOS 通用，需先 npm start）
-npm run test:full         # 冒烟 + SSE + 前端 DOM 全跑
+npm run test:full         # 冒烟 + 上传链路 + SSE + 前端 DOM 全跑
 npm run test:api          # 后端接口冒烟（PowerShell，Windows）
 npm run test:dom          # 前端 DOM 集成（Node + jsdom，跨平台）
+npm run test:uploads      # 上传链路（自带隔离实例与临时数据目录，无需真实密码）
 npm run test:sse          # SSE 实时推送验证（约 40 秒）
 ```
 
@@ -453,9 +459,10 @@ npm run test:sse          # SSE 实时推送验证（约 40 秒）
 
 | 测试 | 结果 |
 |---|---|
-| 跨平台冒烟（`tests/smoke.mjs`） | **29 / 29 通过**（服务存活 / 安全头 / 静态资源 MIME / 公开接口 / 验证码与权限边界 / SSE） |
-| 后端接口冒烟（PowerShell） | **52 / 52 通过**（含验证码全链路、数据源设置、账号安全、凭据脱敏） |
-| 前端 DOM 集成 | **67 / 67 通过**（含 11 屏画廊、七国齐全、字体接入、资讯已移除、下滑一步跳转、验证码登录、后台新区块） |
+| 跨平台冒烟（`tests/smoke.mjs`） | **26 / 26 通过**（服务存活 / 安全头 / 静态资源 MIME / 公开接口 / 验证码与权限边界 / SSE） |
+| 上传链路（`tests/uploads.mjs`） | **22 / 22 通过**（自建隔离实例：视频容器校验、伪造扩展名被拒且不留文件、Range 请求、配置字段校验、回归图片上传） |
+| 后端接口冒烟（PowerShell） | **34 / 34 通过**（另有 19 项"需管理员令牌"的用例：`.env` 密码与面板不一致时自动跳过，共 53 项） |
+| 前端 DOM 集成 | **136 / 136 通过**（含 11 屏画廊、七国齐全、字体接入、柔光扫过、背景视频渲染与省流量策略、资讯已移除、下滑一步跳转、验证码登录、后台新区块） |
 | SSE 实时推送 | 初始快照 + 变化广播 **通过** |
 | **全新环境自举** | **通过**（无 `.env`、无数据目录 → 自动生成密钥与随机密码并正常服务） |
 | 上传落盘 | 通过（写入 `DATA_DIR/uploads`，经 `/uploads` 公开访问，代码目录保持只读可用） |
@@ -622,6 +629,16 @@ A：把仓库拷过去 → `npm install` → `npm start` 即可，**连 `.env` �
 **Q：容器/PaaS 重启后配置全丢了、密码也变了？**
 A：说明没挂持久卷。设 `DATA_DIR=/data` 并把卷挂到 `/data`（Compose 已默认配好），一份卷包含配置、凭据、备份与上传。
 
+**Q：背景视频怎么配？传上去不播怎么办？**
+A：后台 →「画廊管理 → 某一屏 → **背景视频**」点「上传视频」，或直接填一个 https 直链（MP4 建议 H.264 编码，兼容性最好）。
+不播一般是三个原因：① **没静音** —— 浏览器只允许静音视频自动播放，所以「视频静音」开关默认开，别关；② 文件太大，建议 1080p、10~20 秒、5MB 以内；
+③ iOS 低电量模式会拒绝自动播放，此时会显示你配的那张**封面图**（背景图自动降级为封面，不会开天窗）。
+另外，视频背景不会让 11 屏一起下载：只有当前屏在播、相邻屏预载，其余屏连地址都不挂。
+
+**Q：视频传多大？被拒了怎么办？**
+A：默认上限 64MB（`MAX_VIDEO_MB` 可调）。除了扩展名，服务端还会校验**容器特征码**（MP4 的 `ftyp`、WebM 的 `1A 45 DF A3`、Ogg 的 `OggS`），
+所以"把 .txt 改成 .mp4"会被拒收并**立即删除**，不会在数据卷里留下垃圾。用 Nginx 反代时记得放宽 `client_max_body_size`（见部署文档）。
+
 **Q：代码目录是只读的（比如 K8s 只读根文件系统），能跑吗？**
 A：可以。运行时只写 `DATA_DIR`，上传也落在 `DATA_DIR/uploads` 并通过 `/uploads` 提供；启动时会自检可写性，不可写会打印修复建议。
 
@@ -629,7 +646,24 @@ A：可以。运行时只写 `DATA_DIR`，上传也落在 `DATA_DIR/uploads` 并
 
 ## 十四、更新记录
 
-### v2.5（当前）
+### v2.6（当前）
+- **背景支持视频**（画廊每一屏）
+  - 后台「画廊管理 → 背景视频」可直接上传（`mp4 / m4v / webm / ogv / mov`，默认 ≤64MB，`MAX_VIDEO_MB` 可调）或填 https 直链
+  - **除扩展名外还校验容器特征码**（`ftyp` / `1A 45 DF A3` / `OggS`）：改扩展名的假视频会被拒收并立刻从数据卷删除
+  - 视频与静态背景共用同一套滤镜、Ken Burns 缩放与遮罩层，**观感是同一个调子**；原来的背景图自动降级为**封面**（加载中 / 播放失败兜底）
+  - **省流量与省电**：只播放当前屏，相邻屏才预挂 `src`，其余屏不下载；标签页切到后台自动暂停；`prefers-reduced-motion` 下不自动播放
+  - 逐屏开关：静音（自动播放前提）/ 循环 / 不透明度；后台提示里的体积上限由 `/api/uploads/limits` 实时给出
+  - 播放器可拖进度：静态服务支持 **Range 请求（206）**，长视频不必整段下载
+- **光幕特效改为"柔光飘过"**（原来是一条硬边白条匀速横扫，显得突兀）
+  - **三层柔光叠加**：宽辉光 + 窄亮芯 + 冷暖色偏，光有了体积，不再是一条线
+  - 整体 `blur(9px)`，并用上下 `mask` 淡出 → 没有矩形硬边；亮带压在字形垂直中线上
+  - 关键帧慢进慢出（`cubic-bezier(.45,.05,.35,1)`）+ 扫完后留 2.7s 安静期，**不再是匀速硬扫**
+  - 新增**同周期标题光晕呼吸**：光过时最亮、光走时变暗，光像是"穿过"文字
+  - 全程只动 `transform / opacity`（合成器动画），手机上也不掉帧
+- **新增上传链路集成测试** `tests/uploads.mjs`（22 项）：本进程内启动隔离实例、临时 `DATA_DIR`、自写测试凭据，**不需要知道真实管理员密码**，跑完自动清理
+- 顺带：`npm run test:uploads`；`dotenv` 启动提示静音（日志更干净）；README 测试数字改为实测值
+
+### v2.5
 - **画廊从"统一模板"升级为"逐屏自由定制"**（解决"太单一 + 不够自定义"）
   - **6 种标题特效**：光幕扫过 / 渐变流动 / 霓虹呼吸 / 描边空心 / 双层错位 / 纯色
   - **3 种水平对齐 + 3 种垂直位置**，遮罩方向会跟着对齐自动翻转（文字永远有暗底）
@@ -650,7 +684,7 @@ A：可以。运行时只写 `DATA_DIR`，上传也落在 `DATA_DIR/uploads` 并
   - 中文标题无法换字形（HoYo 字体不含汉字），改为**每屏不同排版质感**：稻妻倾斜发光、坎瑞亚描边、须弥宽字距、赤冠极宽字距、Ainee 加粗、系统衬线常规
 - **回归测试**：新增字体多样性（≥6 种）、相邻不重复、动画无模糊、光幕延迟 ≤0.9s 四条断言
 
-### v2.3（当前）
+### v2.3
 - **修复：快捷入口中文全部变成 `?`**
   根因：测试脚本用 PowerShell 5.1 的 `Invoke-WebRequest` 发送中文 JSON 时未按 UTF-8 编码，把 `data/config.json`
   的 `links` 区块写成了问号。已从备份修复数据，并把测试助手的请求体显式转成 UTF-8 字节；

@@ -397,6 +397,26 @@ p { margin: 0; }
   filter: saturate(0.82) brightness(0.78) contrast(0.94);
 }
 
+/* 背景视频：与静态背景共用外层容器的滤镜、Ken Burns 缩放与遮罩，
+   所以"图片背景"和"视频背景"看起来是同一套调子 */
+.slide-video {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  background: transparent;
+  opacity: var(--video-opacity, 1);
+  transition: opacity 0.9s ease;
+}
+
+/* 有视频时：静态背景图自动降级为"封面"（加载中 / 播放失败时兜底），
+   遮罩层显式抬到视频之上，保证文字可读性不被视频抢走 */
+.slide-bg.has-video::after { z-index: 1; }
+
 /* 文字区遮罩：--scrim 可在后台「主题编辑 → 背景遮罩强度」调节（越大越清楚、背景越暗）
    先给不支持 rgb(r g b / calc()) 的老浏览器一个固定值回退 */
 .slide-bg::after {
@@ -660,23 +680,71 @@ p { margin: 0; }
 
 .slide-cta { margin-top: 30px; }
 
-/* 金属光扫过（金色标题） */
-.slide-title { position: relative; }
-
-/* 金属光扫过：等字浮起来之后再扫（延迟与逐字动画的结束时间对齐） */
+/* ============================================================
+   光幕特效（effect-shine）
+   从"一条硬边白条从左扫到右"改成"一层柔光飘过"，这就是所谓的"虚幻"：
+     1) 三层叠加——宽辉光 + 窄亮芯 + 冷暖色偏，光有了体积，不再是一条线
+     2) 整体 blur，边缘彻底糊开
+     3) 上下用 mask 淡出，避免出现一条贴上去的矩形硬边
+     4) 只动 transform / opacity（合成器动画），手机上也不掉帧
+     5) 同周期的标题光晕：光过时最亮、光走时变暗 —— 光像是"穿过"文字
+   ============================================================ */
 .title-shine {
   position: absolute;
-  inset: -6% -2%;
+  inset: -34% -8% -26%;
+  z-index: 2;
+  overflow: hidden;
   pointer-events: none;
   opacity: 0;
-  background: linear-gradient(100deg, transparent 36%, rgba(255, 253, 245, 0.62) 50%, transparent 64%);
-  background-size: 250% 100%;
   mix-blend-mode: screen;
+  /* 上下淡出，并且亮带压在字形垂直中线上：光不再是一条贴上去的矩形 */
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 33%, #000 72%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 33%, #000 72%, transparent 100%);
 }
 
-.gallery-slide.is-active .title-shine {
-  opacity: 1;
-  animation: metalShine 6.5s ease-in-out 0.72s infinite;
+.title-shine::before {
+  content: '';
+  position: absolute;
+  inset: -30% -70%;
+  background-image:
+    linear-gradient(100deg, transparent 43%, rgb(255 253 245 / 0.32) 48%, rgb(255 255 255 / 0.48) 50%, rgb(255 253 245 / 0.32) 52%, transparent 57%),
+    linear-gradient(100deg, transparent 26%, rgb(255 244 208 / 0.16) 40%, rgb(255 250 235 / 0.22) 50%, rgb(255 244 208 / 0.16) 60%, transparent 74%),
+    linear-gradient(100deg, transparent 30%, rgb(150 214 255 / 0.12) 44%, rgb(255 236 190 / 0.14) 56%, transparent 70%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  filter: blur(9px) saturate(1.05);
+  /* 起始位置完全在标题之外：光是从画面外"飘"进来的，不是凭空出现 */
+  transform: translate3d(-70%, 0, 0) skewX(-9deg);
+  will-change: transform, opacity;
+}
+
+/* 等字浮起来之后再扫（延迟与逐字动画的收尾对齐），到下一轮之间留一段"安静期" */
+.gallery-slide.is-active .title-shine { opacity: 1; }
+
+.gallery-slide.is-active .title-shine::before {
+  animation: shineSweep 8.4s cubic-bezier(0.45, 0.05, 0.35, 1) 0.9s infinite;
+}
+
+/* 标题自身的呼吸光晕：与光幕同周期，让光看起来是穿过文字而不是贴在文字上 */
+.gallery-slide.effect-shine .slide-title::after {
+  content: '';
+  position: absolute;
+  inset: -26% -10%;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 32% 50%,
+    rgb(232 200 119 / 0.3) 0%,
+    rgb(232 200 119 / 0.12) 42%,
+    transparent 72%
+  );
+  filter: blur(16px);
+  opacity: 0.42;
+}
+
+.gallery-slide.effect-shine.is-active .slide-title::after {
+  animation: haloBreath 8.4s ease-in-out infinite;
 }
 
 /* 画廊控制点：桌面端右侧固定竖排，点击平滑跳转到对应屏
@@ -1508,6 +1576,22 @@ body:not([data-view='home']) .scroll-hint {
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(9, 13, 26, 0.7);
+}
+
+/* 背景视频预览：16:9 小窗，直接可播可拖进度 */
+.video-preview {
+  width: 168px;
+  height: 94px;
+  object-fit: cover;
+  background: #05080f;
+}
+
+/* 还没选视频时给个虚线占位，不至于是一片黑 */
+.upload-preview.is-empty {
+  opacity: 0.55;
+  border-style: dashed;
+  background:
+    linear-gradient(135deg, rgba(232, 200, 119, 0.08), rgba(9, 13, 26, 0.7));
 }
 
 .backup-list { display: grid; gap: 10px; }

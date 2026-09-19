@@ -29,7 +29,7 @@ server {
     add_header X-Frame-Options DENY always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
 
-    client_max_body_size 12m;   # 与后台字体上传上限一致
+    client_max_body_size 80m;   # ≥ 服务端上限（图片 5m / 字体 12m / 视频 64m，见 MAX_*_MB）
 
     gzip on;
     gzip_types text/plain text/css application/javascript application/json image/svg+xml;

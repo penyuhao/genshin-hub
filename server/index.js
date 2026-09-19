@@ -1,7 +1,8 @@
 // index.js — 原神功能快捷站后端入口
 // 职责：启动自举 → 安全中间件 → 静态资源托管 → API 路由 → SPA 回退 → 统一错误处理
 // 可移植性：路径与数据目录全部来自 paths.js，支持 HOST / PORT / DATA_DIR / TRUST_PROXY 环境变量
-require('dotenv').config();
+// quiet: 关闭 dotenv 的启动提示（不想让日志里混入无关 banner；旧版本会忽略这个选项）
+require('dotenv').config({ quiet: true });
 
 const path = require('path');
 const express = require('express');

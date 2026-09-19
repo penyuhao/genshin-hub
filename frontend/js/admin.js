@@ -33,6 +33,22 @@ const CATEGORY_OPTIONS = [
   { value: 'Other', label: '其他' },
 ];
 
+/** 上传体积上限（来自服务端，可被部署环境用环境变量调整） */
+let uploadLimitsCache = null;
+async function fetchUploadLimits() {
+  if (uploadLimitsCache) return uploadLimitsCache;
+  try {
+    const res = await fetchWithTimeout('/api/uploads/limits', {}, 8000);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.video?.maxMB) uploadLimitsCache = data;
+    }
+  } catch {
+    /* 拿不到就用静态文案兜底 */
+  }
+  return uploadLimitsCache;
+}
+
 /** 区块与表单定义 */
 const SECTIONS = [
   {
@@ -50,7 +66,7 @@ const SECTIONS = [
   {
     key: 'hero',
     label: '画廊管理',
-    desc: '首页画廊的每一屏：标题、副标题、背景图与字体（纵向堆叠，一屏一屏往下滚）',
+    desc: '首页画廊的每一屏：标题、副标题、背景（图片或视频）与字体（纵向堆叠，一屏一屏往下滚）',
     fields: [
       {
         key: 'slides',
@@ -62,6 +78,15 @@ const SECTIONS = [
           { key: 'subtitle', label: '副标题（拉丁字母会走架空文字）', type: 'text' },
           { key: 'desc', label: '描述文案', type: 'textarea', rows: 3 },
           { key: 'bgImage', label: '背景图片', type: 'image' },
+          {
+            key: 'bgVideo',
+            label: '背景视频（填了就用视频当背景，上面那张图自动变成封面）',
+            type: 'video',
+            hint: '推荐 MP4（H.264）1920×1080、10~20 秒、5MB 以内；必须静音才能自动播放',
+          },
+          { key: 'videoMuted', label: '视频静音（关掉后浏览器会拒绝自动播放）', type: 'boolean', default: true },
+          { key: 'videoLoop', label: '视频循环播放', type: 'boolean', default: true },
+          { key: 'videoOpacity', label: '视频不透明度（0.2~1）', type: 'number', min: 0.2, max: 1, step: 0.05, default: 1 },
           { key: 'font', label: '使用字体', type: 'select', options: FONT_OPTIONS },
           { key: 'textColor', label: '标题颜色', type: 'color' },
           {
@@ -633,6 +658,19 @@ export class AdminPanel {
       await this.saveSection(section, payload, saveBtn);
     });
 
+    const hintEl = el('p', {
+      class: 'field-hint',
+      text: '上传接口：图片 ≤ 5MB（png/jpg/webp/gif）；字体 ≤ 12MB（ttf/otf/woff/woff2）；背景视频 ≤ 64MB（mp4/webm/ogv/mov）',
+    });
+    // 上限由服务端决定（可用 MAX_VIDEO_MB 等环境变量调整），拿到真实值再覆盖提示
+    fetchUploadLimits().then((limits) => {
+      if (!limits) return;
+      hintEl.textContent =
+        `上传接口：图片 ≤ ${limits.image.maxMB}MB（png/jpg/webp/gif）；` +
+        `字体 ≤ ${limits.font.maxMB}MB（ttf/otf/woff/woff2）；` +
+        `背景视频 ≤ ${limits.video.maxMB}MB（mp4/webm/ogv/mov，推荐 H.264 编码的 MP4）`;
+    });
+
     return el('div', {},
       el('div', { class: 'admin-main-head' },
         el('div', {},
@@ -642,7 +680,7 @@ export class AdminPanel {
       formEl,
       jsonArea,
       el('div', { style: { marginTop: '14px' } },
-        el('p', { class: 'field-hint', text: '上传接口：图片 ≤ 5MB（png/jpg/webp/gif）；字体 ≤ 12MB（ttf/otf/woff/woff2）' }),
+        hintEl,
         uploadInput,
         fontInput)
     );
@@ -723,7 +761,10 @@ export class AdminPanel {
       }
       wrap.appendChild(select);
     } else if (field.type === 'boolean') {
-      const switchEl = el('span', { class: `switch${value ? ' is-on' : ''}`, role: 'switch', tabindex: '0', 'aria-checked': value ? 'true' : 'false' });
+      // 未配置过时用字段默认值（例如"视频静音"默认开），而不是一律当成关
+      const initial = value === undefined || value === null ? Boolean(field.default) : Boolean(value);
+      formState[field.key] = initial;
+      const switchEl = el('span', { class: `switch${initial ? ' is-on' : ''}`, role: 'switch', tabindex: '0', 'aria-checked': initial ? 'true' : 'false' });
       const toggle = () => {
         const on = !switchEl.classList.contains('is-on');
         switchEl.classList.toggle('is-on', on);
@@ -778,6 +819,80 @@ export class AdminPanel {
       });
 
       wrap.append(el('div', { class: 'upload-row' }, preview, el('div', { style: { flex: '1', minWidth: '220px' } }, input, el('div', { style: { marginTop: '8px' } }, uploadBtn)), file));
+    } else if (field.type === 'video') {
+      // 背景视频：URL + 上传 + 预览 + 清除
+      const preview = el('video', {
+        class: 'upload-preview video-preview',
+        muted: true,
+        loop: true,
+        playsinline: true,
+        controls: true,
+        preload: 'metadata',
+        src: value || null,
+      });
+      if (!value) preview.classList.add('is-empty');
+
+      const setSrc = (next) => {
+        if (hasText(next)) {
+          preview.src = next;
+          preview.classList.remove('is-empty');
+        } else {
+          preview.removeAttribute('src');
+          preview.classList.add('is-empty');
+        }
+      };
+
+      const input = el('input', {
+        class: 'input', type: 'text', value: value ?? '',
+        placeholder: '/uploads/videos/xxx.mp4 或 https://....mp4',
+        dataset: { key: field.key },
+        oninput: () => {
+          formState[field.key] = input.value;
+          setSrc(input.value);
+        },
+      });
+      const file = el('input', {
+        type: 'file',
+        accept: 'video/mp4,video/webm,video/ogg,video/quicktime,.mp4,.m4v,.webm,.ogv,.mov',
+        class: 'hidden',
+      });
+      const uploadBtn = el('button', {
+        class: 'mini-btn', type: 'button', text: '上传视频',
+        onclick: () => file.click(),
+      });
+      const clearBtn = el('button', {
+        class: 'mini-btn danger', type: 'button', text: '清除',
+        onclick: () => {
+          input.value = '';
+          formState[field.key] = '';
+          setSrc('');
+        },
+      });
+
+      file.addEventListener('change', async () => {
+        const chosen = file.files?.[0];
+        if (!chosen) return;
+        uploadBtn.textContent = '上传中…（大文件请耐心等）';
+        const result = await this.uploadFile('/api/uploads/video', chosen);
+        uploadBtn.textContent = '上传视频';
+        if (result?.url) {
+          input.value = result.url;
+          formState[field.key] = result.url;
+          setSrc(result.url);
+          toast(`视频已上传（${result.container || '未知容器'}）`, 'success');
+        }
+        file.value = '';
+      });
+
+      wrap.append(
+        el('div', { class: 'upload-row' },
+          preview,
+          el('div', { style: { flex: '1', minWidth: '220px' } },
+            input,
+            el('div', { style: { marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' } }, uploadBtn, clearBtn)),
+          file)
+      );
+      if (field.hint) wrap.appendChild(el('span', { class: 'field-hint', text: field.hint }));
     } else if (field.type === 'array') {
       wrap.appendChild(this.buildArrayField(field, formState));
     }

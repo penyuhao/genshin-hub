@@ -6,6 +6,7 @@
 // 仍然保留的体验：
 //   • 逐字浮现标题（进入视口时触发）
 //   • Ken Burns 背景缓慢缩放（仅当前屏播放，省电）
+//   • 背景视频：当前屏播放、离开即暂停，相邻屏才挂载地址（省流量）
 //   • 圆点导航（桌面端右侧固定竖排，点击平滑跳转）
 //   • 首屏「向下浏览」提示（滚过首屏自动隐藏）
 //   • 键盘 ↑/↓ 与 PageUp/PageDown 原生滚动
@@ -30,6 +31,7 @@ export class Gallery {
     this.slides = [];
     this.slideEls = [];
     this.dots = [];
+    this.videoEls = [];
     this.currentIndex = -1;
     this.enabled = true;
     this.observer = null;
@@ -48,6 +50,7 @@ export class Gallery {
     clear(this.dotsContainer);
     this.slideEls = [];
     this.dots = [];
+    this.videoEls = [];
     this.animatedIn.clear();
     this.ratios.clear();
     this.currentIndex = -1;
@@ -96,15 +99,41 @@ export class Gallery {
       });
 
       // 背景（自己铺满所属区块）
-      slideEl.appendChild(
-        el('div', {
-          class: 'slide-bg',
-          style: slide.bgImage
-            ? { backgroundImage: `url("${String(slide.bgImage).replace(/["()\\]/g, '')}")` }
-            : {},
+      const safeBg = slide.bgImage ? String(slide.bgImage).replace(/["()\\]/g, '') : '';
+      const videoSrc = hasText(slide.bgVideo) ? String(slide.bgVideo).trim() : '';
+      const bgEl = el('div', {
+        class: videoSrc ? 'slide-bg has-video' : 'slide-bg',
+        style: safeBg ? { backgroundImage: `url("${safeBg}")` } : {},
+        'aria-hidden': 'true',
+      });
+
+      let videoEl = null;
+      if (videoSrc) {
+        const muted = slide.videoMuted !== false; // 静音是浏览器允许自动播放的前提
+        const loop = slide.videoLoop !== false;
+        videoEl = el('video', {
+          class: 'slide-video',
+          muted,
+          loop,
+          playsinline: true,
+          'webkit-playsinline': true,
+          // 第一屏立刻取流，其余按需（相邻屏由 syncVideos 提前挂载）
+          preload: index === 0 ? 'auto' : 'none',
+          poster: safeBg || null,
+          tabindex: '-1',
           'aria-hidden': 'true',
-        })
-      );
+          dataset: { src: videoSrc, index: String(index) },
+        });
+        // 属性写进 DOM，属性值也设一遍：某些浏览器只认其中之一
+        videoEl.muted = muted;
+        videoEl.loop = loop;
+        if (typeof slide.videoOpacity === 'number') {
+          videoEl.style.opacity = String(slide.videoOpacity);
+        }
+        bgEl.appendChild(videoEl);
+      }
+
+      slideEl.appendChild(bgEl);
 
       const content = el('div', { class: 'slide-content' });
 
@@ -156,6 +185,7 @@ export class Gallery {
       slideEl.appendChild(content);
       this.container.appendChild(slideEl);
       this.slideEls.push(slideEl);
+      this.videoEls.push(videoEl);
 
       // 圆点导航（桌面端右侧竖排）
       const dot = el('button', {
@@ -172,6 +202,7 @@ export class Gallery {
     this.bindScrollHint();
     this.bindWheel();
     this.bindKeyboard();
+    this.bindVisibility();
     this.setupObserver();
     // 首屏先进入"已激活"状态，动画立刻播放
     this.activate(0, { animate: true });
@@ -210,6 +241,7 @@ export class Gallery {
             this.currentIndex = -1;
             this.slideEls.forEach((elm) => elm.classList.remove('is-active'));
             this.dots.forEach((dot) => dot.classList.remove('is-active'));
+            this.syncVideos(-1); // 看不见画面了就别再解码视频
             this.onSlideChange?.(-1, this.slideEls.length);
           }
         } else if (best !== this.currentIndex) {
@@ -241,6 +273,7 @@ export class Gallery {
         dot.setAttribute('aria-current', i === index ? 'true' : 'false');
       });
       this.currentIndex = index;
+      this.syncVideos(index);
       this.onSlideChange?.(index, this.slideEls.length);
     }
 
@@ -282,6 +315,70 @@ export class Gallery {
     const handler = () => this.step(1);
     this.scrollHint.addEventListener('click', handler);
     this.boundHandlers.push(() => this.scrollHint.removeEventListener('click', handler));
+  }
+
+  /* ---------------- 背景视频：只让看得见的那一屏在播 ----------------
+     背景视频最容易踩的坑是"11 屏同时解码"：手机上既卡又费流量。
+     这里的策略：当前屏播放、相邻屏提前挂载、其余屏连 src 都不挂。          */
+
+  /** 挂载视频地址（首次真正需要时才设置 src，避免一次性下载所有背景视频） */
+  ensureVideoSrc(video) {
+    if (!video || video.getAttribute('src')) return;
+    const src = video.dataset?.src;
+    if (!src) return;
+    video.preload = 'auto';
+    video.setAttribute('src', src);
+    try {
+      video.load?.();
+    } catch {
+      /* 某些环境（如 jsdom）未实现 load()，忽略 */
+    }
+  }
+
+  /** 播放视频：自动播放被拦截（未静音 / 省电模式）时静默降级为封面图 */
+  playVideo(video) {
+    if (!video || prefersReducedMotion()) return;
+    this.ensureVideoSrc(video);
+    try {
+      const promise = video.play?.();
+      if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+    } catch {
+      /* 忽略 */
+    }
+  }
+
+  pauseVideo(video) {
+    if (!video || video.paused) return;
+    try {
+      video.pause?.();
+    } catch {
+      /* 忽略 */
+    }
+  }
+
+  /** 只播放 activeIndex 这一屏；-1 表示全部暂停 */
+  syncVideos(activeIndex) {
+    this.videoEls.forEach((video, index) => {
+      if (!video) return;
+      if (index === activeIndex) {
+        this.playVideo(video);
+        return;
+      }
+      this.pauseVideo(video);
+      // 相邻屏先把地址挂上（不播），切过去时立刻有画面
+      if (activeIndex >= 0 && Math.abs(index - activeIndex) === 1) this.ensureVideoSrc(video);
+    });
+  }
+
+  /** 切到后台标签页时停掉视频：既不浪费电，回来时也能接着播 */
+  bindVisibility() {
+    if (typeof document === 'undefined' || !document.addEventListener) return;
+    const handler = () => {
+      if (document.hidden) this.syncVideos(-1);
+      else if (this.currentIndex >= 0) this.syncVideos(this.currentIndex);
+    };
+    document.addEventListener('visibilitychange', handler);
+    this.boundHandlers.push(() => document.removeEventListener('visibilitychange', handler));
   }
 
   /* ---------------- 滚轮 / 键盘：一次手势一屏 ---------------- */
@@ -437,6 +534,7 @@ export class Gallery {
 
   destroy() {
     this.stopAnimation();
+    this.syncVideos(-1);
     this.observer?.disconnect();
     this.observer = null;
     this.boundHandlers.forEach((fn) => {

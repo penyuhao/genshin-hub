@@ -201,9 +201,27 @@ async function main() {
     fontClasses.join(' → '));
   check('标题浮现动画不再用模糊（避免看着像"换字体"）',
     !/charRise[\s\S]{0,200}blur/.test(animationsCss), '');
+
+  // 光幕特效：从"硬边白条匀速扫过"改成"多层柔光飘过"（虚幻感）
+  const shineBlock = (mainCss.match(/\.title-shine::before\s*\{[\s\S]*?\n\}/) || [''])[0];
+  const shineDelay = Number((mainCss.match(/\.gallery-slide\.is-active \.title-shine::before\s*\{[^}]*?(\d*\.?\d+)s\s+infinite/) || [])[1]);
   check('光幕在文字浮现之后才扫过（延迟 ≤0.9s）',
-    /\.gallery-slide\.is-active \.title-shine\s*\{[^}]*animation:[^;]*?(\d*\.?\d+)s\s+infinite/.test(mainCss)
-    && Number((mainCss.match(/\.gallery-slide\.is-active \.title-shine\s*\{[^}]*?(\d*\.?\d+)s\s+infinite/) || [])[1]) <= 0.9,
+    /\.gallery-slide\.is-active \.title-shine::before\s*\{[^}]*animation:\s*shineSweep/.test(mainCss)
+    && shineDelay > 0 && shineDelay <= 0.9,
+    `delay=${shineDelay}`);
+  check('光幕是多层柔光叠加（宽辉光 + 亮芯 + 色偏 ≥3 层）',
+    (shineBlock.match(/linear-gradient/g) || []).length >= 3,
+    `层数 ${(shineBlock.match(/linear-gradient/g) || []).length}`);
+  check('光幕整体做模糊（边缘不再是一条硬边）', /filter:\s*blur\(/.test(shineBlock), shineBlock.slice(0, 80));
+  check('光幕上下用 mask 淡出（不出现矩形硬边）',
+    /\.title-shine\s*\{[^}]*mask-image:\s*linear-gradient/.test(mainCss));
+  check('扫过不再是匀速硬扫（关键帧有淡入 / 淡出 / 停留）',
+    /@keyframes shineSweep[\s\S]{0,420}opacity:\s*0;[\s\S]{0,240}\n\}/.test(animationsCss));
+  check('光幕只动 transform / opacity（合成器动画，不掉帧）',
+    /will-change:\s*transform,\s*opacity/.test(shineBlock) && !/background-position/.test(shineBlock));
+  check('标题光晕与光幕同周期呼吸（光"穿过"文字的感觉）',
+    /@keyframes haloBreath/.test(animationsCss)
+    && /\.gallery-slide\.effect-shine\.is-active \.slide-title::after\s*\{[^}]*haloBreath/.test(mainCss),
     '');
 
   console.log('\n[阶段4+++] 逐屏外观自定义（特效 / 对齐 / 位置 / 字号 / 遮罩）');
@@ -520,6 +538,74 @@ async function main() {
       `实际 ${qa('#adminMain input[type="password"]').length}`);
     check('账号安全区块提示验证码状态', /登录图形验证码/.test(q('#adminMain')?.textContent || ''));
   }
+
+  // ---------- 背景视频（用隔离容器单独渲染，不污染线上页面的 DOM 断言） ----------
+  console.log('\n[阶段4++++] 背景视频支持');
+  const { Gallery } = await import(pathToFileURL(path.join(ROOT, 'frontend/js/gallery.js')).href);
+  const host = window.document.createElement('div');
+  const dotsHost = window.document.createElement('div');
+  host.className = 'gallery';
+  dotsHost.className = 'gallery-dots';
+  window.document.body.append(host, dotsHost);
+
+  const isoGallery = new Gallery({
+    container: host,
+    dots: dotsHost,
+    scrollHint: null,
+    onCta: () => {},
+    onSlideChange: () => {},
+    onExitDown: () => {},
+  });
+  isoGallery.render([
+    { title: '视频屏一', bgImage: '/images/hero1.svg', bgVideo: '/uploads/videos/a.mp4' },
+    { title: '静态屏', bgImage: '/images/hero2.svg' },
+    { title: '视频屏二', bgImage: '/images/hero3.svg', bgVideo: '/uploads/videos/c.mp4', videoOpacity: 0.7, videoLoop: false },
+  ]);
+
+  const videoOne = host.querySelectorAll('video.slide-video')[0];
+  const videoTwo = host.querySelectorAll('video.slide-video')[1];
+  check('背景视频渲染为 <video class="slide-video">', Boolean(videoOne) && Boolean(videoTwo),
+    `实际 ${host.querySelectorAll('video.slide-video').length} 个`);
+  check('默认静音 + 循环 + playsinline（自动播放的前提）',
+    videoOne?.muted === true && videoOne?.loop === true && videoOne?.hasAttribute('playsinline'),
+    `muted=${videoOne?.muted} loop=${videoOne?.loop}`);
+  check('静态背景图降级为封面（加载中 / 播放失败兜底）',
+    videoOne?.getAttribute('poster') === '/images/hero1.svg', videoOne?.getAttribute('poster'));
+  check('有视频的屏带 has-video 类（遮罩层级契约）', Boolean(host.querySelector('.slide-bg.has-video')));
+  check('当前屏视频立刻挂载地址', videoOne?.getAttribute('src') === '/uploads/videos/a.mp4',
+    videoOne?.getAttribute('src'));
+  check('非相邻屏不下载视频（省流量）',
+    !videoTwo?.getAttribute('src') && videoTwo?.dataset?.src === '/uploads/videos/c.mp4',
+    `src=${videoTwo?.getAttribute('src')}`);
+  check('逐屏视频参数生效（不透明度 / 不循环）',
+    videoTwo?.style.opacity === '0.7' && videoTwo?.loop === false,
+    `opacity=${videoTwo?.style.opacity} loop=${videoTwo?.loop}`);
+  check('静态屏不产生 video 元素', host.querySelectorAll('.gallery-slide')[1]?.querySelector('video') === null);
+
+  isoGallery.destroy();
+  host.remove();
+  dotsHost.remove();
+
+  // 后端契约：上传接口 / 校验 / 上传上限
+  const validateSrc = readSrc('server/middleware/validate.js');
+  const mediaSrc = readSrc('server/routes/media.js');
+  check('后端 schema 接受 bgVideo / videoLoop / videoMuted / videoOpacity',
+    /bgVideo:\s*optionalUrl/.test(validateSrc) && /videoLoop:\s*z\.boolean/.test(validateSrc)
+    && /videoMuted:\s*z\.boolean/.test(validateSrc) && /videoOpacity:\s*z\.number/.test(validateSrc));
+  check('后端提供视频上传接口且限制容器类型',
+    /\/uploads\/video/.test(mediaSrc) && /VIDEO_TYPES/.test(mediaSrc) && /\.webm/.test(mediaSrc));
+  check('视频做容器特征码校验（扩展名不可信）',
+    /VIDEO_SIGNATURES/.test(mediaSrc) && /ftyp/.test(mediaSrc) && /0x1a/.test(mediaSrc));
+  const limitsRes = await fetchProxy('/api/uploads/limits').then((r) => r.json()).catch(() => null);
+  check('上传上限接口可用且含视频上限', Number(limitsRes?.video?.maxMB) > 0, JSON.stringify(limitsRes?.video || null));
+  const videoNoAuth = await fetchProxy('/api/uploads/video', { method: 'POST' });
+  check('未登录不允许上传视频（401）', videoNoAuth.status === 401, `HTTP ${videoNoAuth.status}`);
+  check('后台提供背景视频输入（含上传按钮）',
+    /key:\s*'bgVideo'/.test(adminJs) && /type:\s*'video'/.test(adminJs) && /\/api\/uploads\/video/.test(adminJs));
+  check('后台提供视频静音 / 循环 / 不透明度开关',
+    /key:\s*'videoMuted'/.test(adminJs) && /key:\s*'videoLoop'/.test(adminJs) && /key:\s*'videoOpacity'/.test(adminJs));
+  check('CSS 定义视频层与遮罩层级（遮罩在视频之上）',
+    /\.slide-video\s*\{/.test(mainCss) && /\.slide-bg\.has-video::after\s*\{\s*z-index:\s*1/.test(mainCss));
 
   console.log('\n[阶段9] 运行时健康度');
   check('无未捕获运行时异常', runtimeErrors.length === 0, runtimeErrors.slice(0, 3).join(' | '));

@@ -5,7 +5,7 @@
 //   DATA_DIR       运行时数据（配置 / 凭据 / 备份 / 上传），默认 server/data
 //                  → 容器或 PaaS 上把它指到挂载卷即可持久化，代码目录可只读
 //   FRONTEND_DIR   静态资源根目录，默认 ../frontend
-//   UPLOAD_DIR     后台上传的图片与字体，默认 DATA_DIR/uploads
+//   UPLOAD_DIR     后台上传的图片 / 字体 / 背景视频，默认 DATA_DIR/uploads
 //   CONFIG_DEFAULT 出厂默认配置（随代码走，不随 DATA_DIR 变）
 //
 // 所有需要写的目录都会由 ensureDirs() 统一创建。
@@ -46,6 +46,7 @@ const paths = {
   // ---- 上传目录（写进数据卷）----
   IMAGE_UPLOAD_DIR: path.join(UPLOAD_DIR, 'images'),
   FONT_UPLOAD_DIR: path.join(UPLOAD_DIR, 'fonts'),
+  VIDEO_UPLOAD_DIR: path.join(UPLOAD_DIR, 'videos'),
 
   // ---- 静态资源（随代码，只读）----
   FONT_DIR: path.join(FRONTEND_DIR, 'fonts'),
@@ -55,6 +56,7 @@ const paths = {
   // ---- 上传后的公开 URL 前缀 ----
   IMAGE_URL_PREFIX: '/uploads/images',
   FONT_URL_PREFIX: '/uploads/fonts',
+  VIDEO_URL_PREFIX: '/uploads/videos',
 };
 
 /** 需要存在且可写的目录 */
@@ -63,6 +65,7 @@ const REQUIRED_DIRS = [
   paths.BACKUP_DIR,
   paths.IMAGE_UPLOAD_DIR,
   paths.FONT_UPLOAD_DIR,
+  paths.VIDEO_UPLOAD_DIR,
 ];
 
 let prepared = false;
