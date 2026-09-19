@@ -95,10 +95,13 @@ function renderHomeIndex(config) {
         'aria-label': `跳转到第 ${index + 1} 屏：${slide.title || ''}`,
         onclick: () => state.gallery?.goTo(index),
       },
-        el('span', { class: 'index-no', text: String(index + 1).padStart(2, '0') }),
+        // 国家/地区图标（没配就按标题自动匹配内置图标）
+        el('span', { class: 'index-icon' },
+          el('img', { src: iconOf(slide), alt: '', loading: 'lazy', width: '28', height: '28' })),
         el('span', { class: 'index-body' },
           el('span', { class: 'index-title', text: hasText(slide.title) ? slide.title : `第 ${index + 1} 屏` }),
-          hasText(slide.subtitle) ? el('span', { class: 'index-sub', text: slide.subtitle }) : null)
+          hasText(slide.subtitle) ? el('span', { class: 'index-sub', text: slide.subtitle }) : null),
+        el('span', { class: 'index-no', text: String(index + 1).padStart(2, '0') })
       )
     );
   });
@@ -719,6 +722,33 @@ function renderGallery(config) {
 
   // 一屏一步（滚轮由 Gallery 自己接管做动画，触摸交给 CSS 吸附）
   state.gallery.render(config.hero?.slides || []);
+}
+
+/* ============================================================
+   国家/地区图标：没配就按标题自动匹配内置图标（frontend/images/icons）
+   ============================================================ */
+const BUILTIN_ICONS = {
+  原神: '/images/icons/genshin.svg',
+  蒙德: '/images/icons/mondstadt.svg',
+  璃月: '/images/icons/liyue.svg',
+  稻妻: '/images/icons/inazuma.svg',
+  须弥: '/images/icons/sumeru.svg',
+  枫丹: '/images/icons/fontaine.svg',
+  纳塔: '/images/icons/natlan.svg',
+  至冬: '/images/icons/snezhnaya.svg',
+  挪德卡莱: '/images/icons/nodkrai.svg',
+  坎瑞亚: '/images/icons/khaenriah.svg',
+  哥伦比娅: '/images/icons/columbina.svg',
+};
+
+function iconOf(slide) {
+  const custom = String(slide?.icon || '').trim();
+  if (custom) return custom;
+  const title = String(slide?.title || '');
+  for (const [keyword, path] of Object.entries(BUILTIN_ICONS)) {
+    if (title.includes(keyword)) return path;
+  }
+  return '/images/icons/genshin.svg';
 }
 
 /* ============================================================

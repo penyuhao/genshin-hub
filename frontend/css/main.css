@@ -1142,6 +1142,28 @@ body:not([data-view='home']) .scroll-hint {
   background: rgba(232, 200, 119, 0.08);
 }
 
+/* 国家/地区图标：像官方地图那样，图标在左、名字在右 */
+.index-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 35% 30%, rgba(232, 200, 119, 0.18), rgba(9, 13, 26, 0.75));
+  border: 1px solid rgba(232, 200, 119, 0.22);
+}
+
+.index-icon img {
+  width: 26px;
+  height: 26px;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 6px rgba(232, 200, 119, 0.35));
+}
+
+.index-card:hover .index-icon { border-color: rgba(232, 200, 119, 0.5); }
+.index-card .index-no { margin-left: auto; opacity: 0.5; }
+
 /* ---------- 悬停时一道柔光扫过卡片（纯 CSS，不占 JS）----------
    卡片本身已经有"抬起 + 描边提亮"，这里再加一道横向光带，手感更活 */
 .download-card::after,

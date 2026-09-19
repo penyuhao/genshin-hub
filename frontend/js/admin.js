@@ -123,6 +123,13 @@ const SECTIONS = [
           { key: 'desc', label: '描述文案', type: 'textarea', rows: 3, group: '基本' },
           { key: 'bgImage', label: '背景图片', type: 'image', group: '基本' },
           {
+            key: 'icon',
+            label: '国家/地区图标（留空按标题自动匹配内置图标）',
+            type: 'image',
+            group: '基本',
+            hint: '内置图标在 /images/icons/：genshin、mondstadt、liyue、inazuma、sumeru、fontaine、natlan、snezhnaya、nodkrai、khaenriah、columbina；也可以上传自己的',
+          },
+          {
             key: 'bgVideo',
             label: '背景视频（填了就用视频当背景，上面那张图自动变成封面）',
             type: 'video',

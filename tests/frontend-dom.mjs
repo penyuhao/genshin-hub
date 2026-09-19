@@ -595,6 +595,23 @@ async function main() {
     `实际 ${qa('#homeIndex .index-card').length}`);
   check('索引卡片带序号与副标题', Boolean(q('#homeIndex .index-no')) && Boolean(q('#homeIndex .index-sub')));
 
+  // 每个国家/地区一个图标（照官方地图那种"图标 + 名字"的排法）
+  const indexIcons = qa('#homeIndex .index-card .index-icon img');
+  check('提瓦特索引每张卡片都有国家/地区图标', indexIcons.length === qa('#homeIndex .index-card').length
+    && indexIcons.length >= 10, `${indexIcons.length} 个图标 / ${qa('#homeIndex .index-card').length} 张卡片`);
+  check('图标来自内置图标库（/images/icons/）',
+    indexIcons.every((img) => (img.getAttribute('src') || '').startsWith('/images/icons/')),
+    indexIcons.map((img) => img.getAttribute('src')).slice(0, 3).join(' '));
+  check('11 个国家/地区图标素材随仓库提供',
+    ['genshin', 'mondstadt', 'liyue', 'inazuma', 'sumeru', 'fontaine', 'natlan', 'snezhnaya', 'nodkrai', 'khaenriah', 'columbina']
+      .every((n) => fs.existsSync(path.join(ROOT, 'frontend/images/icons', `${n}.svg`))));
+  check('图标可访问（HTTP 200）',
+    await fetchProxy(indexIcons[0]?.getAttribute('src') || '/images/icons/genshin.svg').then((r) => r.ok));
+  check('后台可逐屏指定图标 + schema 接受 icon 字段',
+    /key: 'icon'/.test(readSrc('frontend/js/admin.js')) && /icon: optionalUrl/.test(readSrc('server/middleware/validate.js')));
+  check('索引卡片是"图标 + 名字"的排法（图标有独立容器与样式）',
+    /\.index-icon\s*\{/.test(mainCss) && /\.index-icon img\s*\{/.test(mainCss));
+
   const indexBefore = q('#gallery').scrollTop;
   qa('#homeIndex .index-card')[5].dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
   await sleep(750);

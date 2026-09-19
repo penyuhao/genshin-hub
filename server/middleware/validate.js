@@ -122,6 +122,8 @@ const slideSchema = z.object({
   subtitle: cleanStr(200).optional(),
   desc: cleanStr(300).optional(),
   bgImage: safeUrl,
+  /** 这一屏的国家/地区图标（留空按标题自动匹配内置图标，见 frontend/images/icons） */
+  icon: optionalUrl,
   /**
    * 背景视频（可选）：填了就用视频当背景，bgImage 自动降级为封面/加载占位。
    * 只允许站内 /uploads/videos/... 或 https 直链，避免被塞进 data:/javascript: 之类的东西。
