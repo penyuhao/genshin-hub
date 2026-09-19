@@ -284,6 +284,16 @@ async function main() {
   check('资讯区已移除（无兑换码/卡池）', qa('.code-card').length === 0 && qa('.news-block').length === 0);
   check('服务状态速览已渲染', /监控总数|所有服务正常|个服务异常|暂无监控项/.test(q('#homeStatus')?.textContent || ''),
     (q('#homeStatus')?.textContent || '').slice(0, 60));
+
+  // 回归：工具面板推送的是 { monitors, summary } 嵌套结构，首页必须也能正确显示（曾出现全是 0 的 bug）
+  const summaryApi = await fetchProxy('/api/status/summary').then((r) => r.json());
+  const statusCardText = (q('#homeStatusCard')?.textContent || '').replace(/\s+/g, '');
+  check(`首页状态数字与接口一致（总数 ${summaryApi.total} / 在线 ${summaryApi.up}）`,
+    statusCardText.includes(`监控总数${summaryApi.total}`) && statusCardText.includes(`在线${summaryApi.up}`),
+    statusCardText.slice(0, 80));
+  check('首页状态数字不为全 0（嵌套/扁平两种数据结构都能处理）',
+    !/^监控总数0在线0/.test(statusCardText) || summaryApi.total === 0, statusCardText.slice(0, 40));
+
   check('状态速览含返回画廊按钮', q('#homeStatus')?.textContent.includes('返回画廊'));
   check('快捷入口保留外链卡片', qa('#homeLinks .link-card').length >= 3, `实际 ${qa('#homeLinks .link-card').length}`);
   check('外链安全属性（noopener）', qa('#homeLinks .link-card[target="_blank"]')

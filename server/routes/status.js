@@ -3,6 +3,7 @@ const router = require('express').Router();
 const statusService = require('../services/statusService');
 const sseBus = require('../services/sseBus');
 const kumaSocket = require('../services/kumaSocket');
+const kumaConfig = require('../services/kumaConfig');
 
 /** GET /api/status/monitors — 合并后的监控列表（含摘要、心跳历史） */
 router.get('/monitors', async (req, res, next) => {
@@ -52,10 +53,12 @@ router.get('/connection', async (req, res, next) => {
   }
 });
 
-/** GET /api/status/open — 服务端跳转到 Kuma 状态页（前端永远拿不到 Kuma URL） */
+/** GET /api/status/open — 服务端跳转到 Kuma 状态页（前端永远拿不到 Kuma URL）
+    地址与 slug 取自「面板配置优先、.env 兜底」的运行时设置 */
 router.get('/open', (req, res) => {
-  const base = (process.env.KUMA_URL || '').trim().replace(/\/+$/, '');
-  const slug = (process.env.KUMA_STATUS_SLUG || '').trim();
+  const cfg = kumaConfig.runtimeCredentials();
+  const base = (cfg.url || '').trim().replace(/\/+$/, '');
+  const slug = (cfg.slug || '').trim();
 
   if (!base || !slug) {
     res
@@ -65,8 +68,17 @@ router.get('/open', (req, res) => {
         '<!doctype html><meta charset="utf-8"><title>Mock 演示模式</title>' +
           '<body style="font-family:system-ui;background:#0b1020;color:#f0ece0;padding:40px;line-height:1.8">' +
           '<h2 style="color:#e8c877">当前为 Mock 演示模式</h2>' +
-          '<p>尚未在 <code>server/.env</code> 中配置 <code>KUMA_URL</code> 与 <code>KUMA_STATUS_SLUG</code>，因此没有外部状态页可跳转。</p>' +
-          '<p>配置后本链接会由后端 302 跳转到真实的 Uptime Kuma 状态页（前端不接触 Kuma 地址）。</p>' +
+          '<p>还没有配置数据源，所以没有外部状态页可跳转。</p>' +
+          '<p><b>配置方法</b>：登录 <a style="color:#7fd8d8" href="/#admin">管理后台</a> → 左侧「<b>数据源设置</b>」→ 填 Kuma 地址与状态页 slug（可选 API Key）→「测试连接」→「保存并热重载」。</p>' +
+          '<p>也支持写在 <code>server/.env</code> 的 <code>KUMA_URL</code> / <code>KUMA_STATUS_SLUG</code>，但<b>面板配置优先</b>。</p>' +
+          '<p>配置好后，本链接会由后端 302 跳转到真实的 Uptime Kuma 状态页（前端始终不接触 Kuma 地址）。</p>' +
+          '<p style="color:#9aa0b5;font-size:13px">当前生效配置来源：' +
+          (kumaConfig.get().source === 'panel'
+            ? '控制面板'
+            : kumaConfig.get().source === 'env'
+              ? '环境变量 .env'
+              : '未配置') +
+          '</p>' +
           '</body>'
       );
     return;
@@ -74,7 +86,7 @@ router.get('/open', (req, res) => {
 
   // 只允许 http(s) 跳转，防开放重定向
   if (!/^https?:\/\//i.test(base)) {
-    return res.status(500).json({ error: 'KUMA_URL 配置非法' });
+    return res.status(500).json({ error: 'Kuma 地址配置非法（必须是 http(s):// 开头）' });
   }
   return res.redirect(302, `${base}/status/${encodeURIComponent(slug)}`);
 });

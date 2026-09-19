@@ -52,7 +52,7 @@ function Test-Case {
 }
 
 function Get-Json {
-  param([string]$Path, [string]$Method = 'GET', $Body = $null, [hashtable]$Headers = @{})
+  param([string]$Path, [string]$Method = 'GET', $Body = $null, [hashtable]$Headers = @{}, [int]$MaxRedirection = -1)
   $params = @{
     Uri                = "$BaseUrl$Path"
     Method             = $Method
@@ -61,6 +61,7 @@ function Get-Json {
     Headers            = $Headers
     ErrorAction        = 'Stop'
   }
+  if ($MaxRedirection -ge 0) { $params.MaximumRedirection = $MaxRedirection }
   if ($Body) {
     $params.ContentType = 'application/json'
     $params.Body = ($Body | ConvertTo-Json -Depth 10 -Compress)
@@ -213,6 +214,39 @@ Test-Case '不存在的监控返回 404' {
   $true
 }
 
+Test-Case 'GET /api/status/open：已配置数据源时返回 302 跳转（面板配置同样生效）' {
+  $conn = Get-Json '/api/status/connection'
+  $configured = $conn.Json.configured -eq $true
+
+  # 用 .NET 原生请求，确保不自动跟随跳转
+  $req = [System.Net.HttpWebRequest]::Create("$BaseUrl/api/status/open")
+  $req.AllowAutoRedirect = $false
+  $req.Method = 'GET'
+  $req.Timeout = 8000
+  $status = 0
+  $location = ''
+  try {
+    $resp = $req.GetResponse()
+    $status = [int]$resp.StatusCode
+    $location = [string]$resp.Headers['Location']
+    $resp.Close()
+  } catch [System.Net.WebException] {
+    $resp = $_.Exception.Response
+    if ($resp) {
+      $status = [int]$resp.StatusCode
+      $location = [string]$resp.Headers['Location']
+      $resp.Close()
+    }
+  }
+
+  if (-not $configured) {
+    if ($status -ne 200) { return "未配置数据源时应返回 200 说明页，实际 $status" }
+    return $true
+  }
+  if ($status -ne 302) { return "已配置应 302，实际 $status（说明 /open 没读到面板配置）" }
+  if ($location -notmatch '^https?://') { return "Location 非法：$location" }
+  $true
+}
 Test-Case 'GET /api/status/connection 返回连接信息' {
   $r = Get-Json '/api/status/connection'
   if ($r.Status -ne 200) { return "HTTP $($r.Status)" }

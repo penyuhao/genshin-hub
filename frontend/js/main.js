@@ -134,14 +134,20 @@ async function loadHomeStatus() {
 }
 
 function updateHomeStatus(snapshot) {
+  if (!snapshot) return;
   state.lastStatus = snapshot;
-  const card = qs('#homeStatusCard');
-  if (!card || !snapshot) return;
 
-  const total = Number(snapshot.total ?? 0);
-  const up = Number(snapshot.up ?? 0);
-  const down = Number(snapshot.down ?? 0);
-  const pending = Number(snapshot.pending ?? 0);
+  const card = qs('#homeStatusCard');
+  if (!card) return;
+
+  // 兼容两种来源：/api/status/summary（扁平）与工具面板/SSE 推送（{ monitors, summary } 嵌套）
+  const summary = snapshot.summary && typeof snapshot.summary === 'object' ? snapshot.summary : snapshot;
+
+  const total = Number(summary.total ?? 0);
+  const up = Number(summary.up ?? 0);
+  const down = Number(summary.down ?? 0);
+  const pending = Number(summary.pending ?? 0);
+  const maintenance = Number(summary.maintenance ?? 0);
   const allUp = down === 0 && total > 0;
 
   clear(card);
@@ -161,10 +167,10 @@ function updateHomeStatus(snapshot) {
         el('span', { class: 'stat-value is-down', text: String(down) })),
       el('div', { class: 'status-metric' },
         el('span', { class: 'stat-label', text: '等待 / 维护' }),
-        el('span', { class: 'stat-value', text: String(pending) }))),
+        el('span', { class: 'stat-value', text: String(pending + maintenance) }))),
     el('p', { class: 'status-meta' },
       `更新于 ${formatRelativeTime(snapshot.lastUpdated)}`,
-      snapshot.source === 'live' ? ' · 实时数据' : ' · 演示数据',
+      snapshot.source === 'live' ? ' · 实时数据' : snapshot.source === 'mock' ? ' · 演示数据' : '',
       snapshot.stale ? ' · 数据可能过期' : '')
   );
 }
