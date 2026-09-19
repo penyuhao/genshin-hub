@@ -174,6 +174,25 @@ function configWarnings(config) {
     out.push(item('warn', 'links:empty', '快捷入口是空的', '', '首页会少一块内容；在「快捷入口」里加几条外链'));
   }
 
+  // 背景音乐：最常见的两种"配了没声音"
+  const musicUrl = String(config.music?.url || '').trim();
+  const musicOn = config.features?.enableBackgroundMusic === true;
+  if (musicUrl && !musicOn) {
+    out.push(item('error', 'music:switch-off', '配了背景音乐地址，但「功能开关 → 背景音乐」是关的',
+      musicUrl.slice(0, 80), '去「功能开关」把「背景音乐」打开，音乐才会生效'));
+  }
+  if (musicOn && !musicUrl) {
+    out.push(item('warn', 'music:no-url', '打开了背景音乐但没填地址', '', '在「背景音乐」里填一个直接的音频文件地址（.mp3/.m4a/.ogg）'));
+  }
+  if (musicUrl && !/\.(?:mp3|m4a|aac|ogg|oga|opus|wav|flac)(?:\?|#|$)/i.test(musicUrl)) {
+    out.push(item('warn', 'music:not-audio', '背景音乐地址看起来不是音频文件',
+      musicUrl.slice(0, 80), '要填「直接指向音频文件」的地址（右键音频 → 复制链接），不是播放页面地址'));
+  }
+  if (musicOn && musicUrl && config.music?.autoplay) {
+    out.push(item('ok', 'music:autoplay', '背景音乐已开启（自动播放）',
+      '浏览器的自动播放策略会拦下带声音的音频：页面会显示 ♪ 按钮，用户第一次点击/按键后会自动开始播放'));
+  }
+
   return out;
 }
 

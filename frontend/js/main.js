@@ -582,9 +582,46 @@ function setupMusic(config) {
   }
 
   if (music.autoplay && !prefersReducedMotion()) {
-    audio.play().then(() => button.classList.add('is-playing')).catch(() => {
-      /* 浏览器自动播放策略：等待用户首次交互 */
-    });
+    const tryAutoplay = () => {
+      let promise = null;
+      try {
+        promise = audio.play?.();
+      } catch {
+        promise = null;
+      }
+      // 有些环境（jsdom / 极老的浏览器）play() 不返回 Promise，这里必须容错，
+      // 否则一个 TypeError 会把整个 renderAll 打断，页面其它部分全都不渲染。
+      if (!promise || typeof promise.then !== 'function') {
+        button.classList.add('is-playing');
+        return;
+      }
+      promise
+        .then(() => {
+          button.classList.add('is-playing');
+          button.classList.remove('is-waiting');
+          button.setAttribute('aria-label', '暂停背景音乐');
+        })
+        .catch(() => {
+          // 浏览器自动播放策略：带声音的音频必须等用户先交互一次。
+          // 这里不报错，而是把按钮标成"待点击"，并在第一次交互时自动重试 ——
+          // 否则用户会觉得"配了背景音乐却没声音"。
+          button.classList.add('is-waiting');
+          button.setAttribute('aria-label', '点击播放背景音乐');
+        });
+    };
+
+    tryAutoplay();
+
+    if (!button.dataset.autoplayRetry) {
+      button.dataset.autoplayRetry = '1';
+      const retry = () => {
+        if (!audio.paused || !button.classList.contains('is-waiting')) return;
+        tryAutoplay();
+      };
+      // 只监听一次用户交互（once），避免长期挂着监听
+      window.addEventListener('pointerdown', retry, { once: true, passive: true });
+      window.addEventListener('keydown', retry, { once: true });
+    }
   }
 }
 
@@ -646,7 +683,7 @@ function renderAll(config) {
   renderDownload(config);
   renderAbout(config);
   renderFooter(config);
-  applyFeatures(config);
+  applyFeatures(config);   // 内部会调用 setupMusic(config)
   updateMoonVisibility();
 
   if (state.effects) {

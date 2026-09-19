@@ -760,7 +760,24 @@ async function main() {
     { title: '视频屏一', bgImage: '/images/hero1.svg', bgVideo: '/uploads/videos/a.mp4' },
     { title: '静态屏', bgImage: '/images/hero2.svg' },
     { title: '视频屏二', bgImage: '/images/hero3.svg', bgVideo: '/uploads/videos/c.mp4', videoOpacity: 0.7, videoLoop: false },
+    { title: '外链按钮屏', bgImage: '/images/hero4.svg', cta: '前往官网', ctaUrl: 'https://ys.mihoyo.com/' },
+    { title: '站内按钮屏', bgImage: '/images/hero5.svg', cta: '进入网站', ctaUrl: '/download' },
   ]);
+
+  // 画廊按钮支持填网页地址：外链新窗口 + noopener，站内路径当前窗口
+  const ctaLinks = host.querySelectorAll('.slide-cta a.btn');
+  check('画廊按钮可以填网页地址（渲染成链接而不是按钮）', ctaLinks.length >= 2, `${ctaLinks.length} 个`);
+  check('外链按钮在新窗口打开并带 noopener',
+    ctaLinks[0]?.getAttribute('href') === 'https://ys.mihoyo.com/'
+    && ctaLinks[0]?.getAttribute('target') === '_blank'
+    && (ctaLinks[0]?.getAttribute('rel') || '').includes('noopener'),
+    `${ctaLinks[0]?.getAttribute('href')} / ${ctaLinks[0]?.getAttribute('target')} / ${ctaLinks[0]?.getAttribute('rel')}`);
+  check('站内路径按钮在当前窗口打开（不新开标签）',
+    ctaLinks[1]?.getAttribute('href') === '/download' && !ctaLinks[1]?.getAttribute('target'),
+    `${ctaLinks[1]?.getAttribute('href')} / target=${ctaLinks[1]?.getAttribute('target')}`);
+  check('后台提供「按钮跳转到的网页地址」字段',
+    /key: 'ctaUrl'/.test(readSrc('frontend/js/admin.js'))
+    && /ctaUrl: optionalUrl/.test(readSrc('server/middleware/validate.js')), '');
 
   const videoOne = host.querySelectorAll('video.slide-video')[0];
   const videoTwo = host.querySelectorAll('video.slide-video')[1];

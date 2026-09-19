@@ -134,6 +134,12 @@ const slideSchema = z.object({
   textColor: hexColor.optional(),
   cta: cleanStr(40).optional(), // 「进入网站」按钮文案，为空则不显示
   ctaView: z.enum(['home', 'download', 'tools', 'about']).optional(),
+  /**
+   * 按钮跳转到的外部/任意地址（可选）：
+   * 填了就用它 —— 外链会在新窗口打开，站内路径（/download 之类）在当前窗口打开；
+   * 留空则回退到 ctaView 的站内视图跳转。
+   */
+  ctaUrl: optionalUrl,
 
   // ---- 逐屏外观（后台「画廊管理」可调）----
   effect: z.enum(TITLE_EFFECTS).optional(), // 标题特效

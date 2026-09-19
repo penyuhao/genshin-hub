@@ -171,15 +171,31 @@ export class Gallery {
 
       if (hasText(slide.cta)) {
         const ctaView = slide.ctaView || 'tools';
-        content.appendChild(
-          el('div', { class: 'slide-cta' },
-            el('button', {
-              class: 'btn btn-primary',
-              type: 'button',
-              text: slide.cta,
-              onclick: () => this.onCta?.(ctaView),
-            }))
-        );
+        const ctaUrl = hasText(slide.ctaUrl) ? String(slide.ctaUrl).trim() : '';
+        const external = /^https?:\/\//i.test(ctaUrl);
+
+        if (ctaUrl) {
+          // 填了地址就当成普通链接：外链新窗口打开，站内路径当前窗口打开
+          content.appendChild(
+            el('div', { class: 'slide-cta' },
+              el('a', {
+                class: 'btn btn-primary',
+                href: ctaUrl,
+                text: slide.cta,
+                ...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {}),
+              }))
+          );
+        } else {
+          content.appendChild(
+            el('div', { class: 'slide-cta' },
+              el('button', {
+                class: 'btn btn-primary',
+                type: 'button',
+                text: slide.cta,
+                onclick: () => this.onCta?.(ctaView),
+              }))
+          );
+        }
       }
 
       slideEl.appendChild(content);

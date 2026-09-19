@@ -34,7 +34,7 @@ const CATEGORY_OPTIONS = [
 ];
 
 /** 链接类字段：失焦时按与后端一致的宽容规则补全协议，避免"填了域名却保存失败" */
-const URL_FIELDS = new Set(['url', 'bgImage', 'bgVideo', 'logo', 'favicon']);
+const URL_FIELDS = new Set(['url', 'bgImage', 'bgVideo', 'logo', 'favicon', 'ctaUrl', 'image', 'mask']);
 
 function normalizeUrlInput(value) {
   const raw = String(value ?? '').trim();
@@ -115,6 +115,8 @@ const SECTIONS = [
         type: 'array',
         itemLabel: '屏',
         itemTitle: (item, index) => item?.title || `第 ${index + 1} 屏`,
+        itemSummary: (item) => [item?.effect, item?.align, item?.bgVideo ? '视频背景' : '']
+          .filter(Boolean).join(' · '),
         fields: [
           { key: 'title', label: '标题', type: 'text', required: true, group: '基本' },
           { key: 'subtitle', label: '副标题（拉丁字母会走架空文字）', type: 'text', group: '基本' },
@@ -192,8 +194,21 @@ const SECTIONS = [
             key: 'videoOpacity', label: '视频不透明度', type: 'number', min: 0.2, max: 1, step: 0.05, default: 1,
             slider: true, group: '背景与可读性',
           },
-          { key: 'cta', label: '按钮文案（留空则不显示）', type: 'text', group: '按钮' },
-          { key: 'ctaView', label: '按钮跳转到', type: 'select', options: VIEW_OPTIONS, group: '按钮' },
+          { key: 'cta', label: '按钮文案（留空则不显示）', type: 'text', group: '按钮', hint: '例如「进入网站」「前往官网」' },
+          {
+            key: 'ctaUrl',
+            label: '按钮跳转到的网页地址（可留空）',
+            type: 'text',
+            group: '按钮',
+            hint: '填了就用它：外链（https://…）新窗口打开，站内路径（/download）当前窗口打开；留空则用下面的「跳转到站内视图」',
+          },
+          {
+            key: 'ctaView',
+            label: '按钮跳转到站内视图（仅在没填上面地址时生效）',
+            type: 'select',
+            options: VIEW_OPTIONS,
+            group: '按钮',
+          },
         ],
       },
     ],
@@ -239,6 +254,8 @@ const SECTIONS = [
         type: 'array',
         itemLabel: '个界面',
         itemTitle: (item) => VIEW_LABELS[item?.view] || '未选择界面',
+        itemSummary: (item) => [item?.image ? '有背景图' : '', item?.mask ? '有遮罩' : '']
+          .filter(Boolean).join(' · ') || '透明（看得到星空）',
         fields: [
           {
             key: 'view',
@@ -1317,57 +1334,86 @@ export class AdminPanel {
     return wrap;
   }
 
-  /** 数组字段：增删 + 上下移动 */
+  /**
+   * 数组字段：折叠卡片 + 增删 + 上下移动
+   * 每条默认收起（只展开第一条），点标题才展开 ——
+   * 否则 11 屏画廊 / 5 个界面背景会一路铺出几百个输入框，根本找不到东西。
+   */
   buildArrayField(field, formState) {
     const list = el('div', { class: 'array-list' });
     const items = Array.isArray(formState[field.key]) ? formState[field.key] : (formState[field.key] = []);
+    const overview = el('p', { class: 'array-overview' });
+    let openIndex = 0; // 新建/上移后要展开的那一条
+
+    const updateOverview = () => {
+      overview.textContent = items.length
+        ? `共 ${items.length} 项 · 点标题展开编辑，右侧按钮可调顺序或删除`
+        : '';
+    };
 
     const rerender = () => {
       clear(list);
+      updateOverview();
+
       if (!items.length) {
         list.appendChild(el('p', { class: 'field-hint', text: '暂无条目，点击下方「新增」添加' }));
       }
 
       items.forEach((item, index) => {
-        const block = el('div', { class: 'repeat-item' });
-        // 条目标题：能用「界面名 / 卡片名」这类可读文字就别用"第 N 项"
+        // 条目标题：能用「界面名 / 屏标题」这类可读文字就别用"第 N 项"
         const title = typeof field.itemTitle === 'function'
           ? field.itemTitle(item, index)
           : `${field.itemLabel || '条目'} ${index + 1}`;
-        const head = el('div', { class: 'repeat-head' },
-          el('span', {}, el('span', { class: 'repeat-index', text: String(index + 1) }), ` ${title}`),
-          el('div', { class: 'admin-actions' },
-            el('button', {
-              class: 'mini-btn', type: 'button', text: '上移',
-              onclick: () => {
-                if (index === 0) return;
-                [items[index - 1], items[index]] = [items[index], items[index - 1]];
-                rerender();
-              },
-            }),
-            el('button', {
-              class: 'mini-btn', type: 'button', text: '下移',
-              onclick: () => {
-                if (index === items.length - 1) return;
-                [items[index + 1], items[index]] = [items[index], items[index + 1]];
-                rerender();
-              },
-            }),
-            el('button', {
-              class: 'mini-btn danger', type: 'button', text: '删除',
-              onclick: () => {
-                items.splice(index, 1);
-                rerender();
-              },
-            }))
-        );
-        block.appendChild(head);
+        const brief = typeof field.itemSummary === 'function' ? field.itemSummary(item) : '';
 
-        // 条目内部同样分组渲染（这里才是"一屏几十个输入框"的重灾区）
+        // 卡片上的按钮不能触发 summary 的展开/收起，所以统一拦一下
+        const action = (handler) => (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          handler();
+        };
+
+        const body = el('div', { class: 'repeat-body' });
         for (const node of this.buildGroupedFields({ key: field.key }, field.fields || [], item)) {
-          block.appendChild(node);
+          body.appendChild(node);
         }
-        list.appendChild(block);
+
+        list.appendChild(
+          el('details', { class: 'repeat-item', open: index === openIndex },
+            el('summary', { class: 'repeat-head' },
+              el('span', { class: 'repeat-title' },
+                el('span', { class: 'repeat-index', text: String(index + 1) }),
+                el('span', { class: 'repeat-name', text: title }),
+                brief ? el('span', { class: 'repeat-brief', text: brief }) : null),
+              el('div', { class: 'admin-actions' },
+                el('button', {
+                  class: 'mini-btn', type: 'button', text: '上移',
+                  onclick: action(() => {
+                    if (index === 0) return;
+                    [items[index - 1], items[index]] = [items[index], items[index - 1]];
+                    openIndex = index - 1;
+                    rerender();
+                  }),
+                }),
+                el('button', {
+                  class: 'mini-btn', type: 'button', text: '下移',
+                  onclick: action(() => {
+                    if (index === items.length - 1) return;
+                    [items[index + 1], items[index]] = [items[index], items[index + 1]];
+                    openIndex = index + 1;
+                    rerender();
+                  }),
+                }),
+                el('button', {
+                  class: 'mini-btn danger', type: 'button', text: '删除',
+                  onclick: action(() => {
+                    items.splice(index, 1);
+                    openIndex = Math.max(0, index - 1);
+                    rerender();
+                  }),
+                }))),
+            body)
+        );
       });
     };
 
@@ -1385,11 +1431,12 @@ export class AdminPanel {
           else blank[sub.key] = '';
         }
         items.push(blank);
+        openIndex = items.length - 1; // 新建的那条直接展开，省得再点一下
         rerender();
       },
     });
 
-    return el('div', {}, list, el('div', { style: { marginTop: '10px' } }, addBtn));
+    return el('div', {}, overview, list, el('div', { style: { marginTop: '10px' } }, addBtn));
   }
 
   /** 从 DOM 收集表单值（数组已通过闭包写入 formState） */
