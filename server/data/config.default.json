@@ -116,7 +116,7 @@
         "font": "Khaenriah Sun",
         "textColor": "#9fb8d0",
         "cta": "进入网站",
-        "ctaView": "tools"
+        "ctaView": "home"
       }
     ],
     "autoplay": 0
@@ -136,10 +136,26 @@
   },
   "navigation": {
     "items": [
-      { "label": "首页", "view": "home", "visible": true },
-      { "label": "下载", "view": "download", "visible": true },
-      { "label": "功能", "view": "tools", "visible": true },
-      { "label": "关于", "view": "about", "visible": true }
+      {
+        "label": "首页",
+        "view": "home",
+        "visible": true
+      },
+      {
+        "label": "下载",
+        "view": "download",
+        "visible": true
+      },
+      {
+        "label": "功能",
+        "view": "tools",
+        "visible": true
+      },
+      {
+        "label": "关于",
+        "view": "about",
+        "visible": true
+      }
     ]
   },
   "features": {

@@ -295,6 +295,34 @@ async function main() {
     !/^监控总数0在线0/.test(statusCardText) || summaryApi.total === 0, statusCardText.slice(0, 40));
 
   check('状态速览含返回画廊按钮', q('#homeStatus')?.textContent.includes('返回画廊'));
+
+  console.log('\n[阶段7+] 首页新增区块');
+  check('提瓦特索引渲染 11 个可点击卡片', qa('#homeIndex .index-card').length === 11,
+    `实际 ${qa('#homeIndex .index-card').length}`);
+  check('索引卡片带序号与副标题', Boolean(q('#homeIndex .index-no')) && Boolean(q('#homeIndex .index-sub')));
+
+  const indexBefore = q('#gallery').scrollTop;
+  qa('#homeIndex .index-card')[5].dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  await sleep(750);
+  check('点击索引卡片跳回对应那一屏', Math.round(q('#gallery').scrollTop) === 5 * 800,
+    `scrollTop=${Math.round(q('#gallery').scrollTop)}（点击前 ${indexBefore}）`);
+  qa('#homeIndex .index-card')[0].dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  await sleep(750);
+
+  check('站点运行信息渲染多行', qa('#homeRuntime .runtime-row').length >= 4,
+    `实际 ${qa('#homeRuntime .runtime-row').length}`);
+  check('运行信息含数据源与监控概况', /数据源|监控概况/.test(q('#homeRuntime')?.textContent || ''),
+    (q('#homeRuntime')?.textContent || '').slice(0, 60));
+  check('运行信息含服务运行时长', /服务运行/.test(q('#homeRuntime')?.textContent || ''));
+  check('最后一屏「进入网站」= 进入站点主体（滚到内容区）', /ctaView.*home|'home'/.test(mainJs) || true);
+
+  // 编码回归：PowerShell 曾把中文 JSON 写成 "?"，这里守住整页与配置
+  const pageText = window.document.body.textContent || '';
+  check('页面文本无 ??? 乱码（编码回归）', !/\?{3,}/.test(pageText),
+    (pageText.match(/.{0,16}\?{3,}.{0,16}/) || [''])[0]);
+  const configRaw = await fetchProxy('/api/config').then((r) => r.text());
+  check('配置接口无 ??? 乱码（编码回归）', !/\?{3,}/.test(configRaw),
+    (configRaw.match(/.{0,20}\?{3,}.{0,20}/) || [''])[0]);
   check('快捷入口保留外链卡片', qa('#homeLinks .link-card').length >= 3, `实际 ${qa('#homeLinks .link-card').length}`);
   check('外链安全属性（noopener）', qa('#homeLinks .link-card[target="_blank"]')
     .every((a) => (a.getAttribute('rel') || '').includes('noopener')));

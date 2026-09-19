@@ -87,6 +87,21 @@ export function formatClock(input) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 }
 
+/** 秒数 → 易读时长：3 天 5 小时 / 2 小时 8 分 / 45 秒 */
+export function formatDuration(seconds) {
+  const total = Number(seconds);
+  if (!Number.isFinite(total) || total < 0) return '--';
+
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+
+  if (days > 0) return `${days} 天 ${hours} 小时`;
+  if (hours > 0) return `${hours} 小时 ${minutes} 分`;
+  if (minutes > 0) return `${minutes} 分 ${Math.floor(total % 60)} 秒`;
+  return `${Math.floor(total)} 秒`;
+}
+
 /** 复制到剪贴板（含降级方案） */
 export async function copyText(value) {
   const text = String(value ?? '');

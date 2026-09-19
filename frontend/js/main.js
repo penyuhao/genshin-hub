@@ -1,5 +1,5 @@
 // js/main.js — 应用入口：加载配置 → 渲染各视图 → 初始化动效与交互
-import { el, clear, qs, qsa, toast, hasText, isMobileViewport, prefersReducedMotion, formatRelativeTime, fetchWithTimeout } from './util.js';
+import { el, clear, qs, qsa, toast, hasText, isMobileViewport, prefersReducedMotion, formatRelativeTime, formatDuration, fetchWithTimeout } from './util.js';
 import { loadConfig, applyTheme, applySiteMeta } from './config.js';
 import { initFonts } from './fonts.js';
 import { initRouter, onViewChange, navigate } from './router.js';
@@ -58,22 +58,130 @@ function renderNav(config) {
    ============================================================ */
 function renderHomeContent(config) {
   renderHomeStatus(config);
+  renderHomeIndex(config);
   renderHomeLinks(config);
+  renderHomeRuntime(config);
   bindContentWheelBack();
 }
 
-/** 在下方内容区向上滚 → 回到画廊（一次手势一步，不逐像素挪） */
+/** 统一的区块标题行 */
+function homeBlockHead(title, hint, extra) {
+  return el('div', { class: 'home-block-head' },
+    el('h3', { class: 'home-block-title', text: title }),
+    hasText(hint) ? el('span', { class: 'home-block-hint', text: hint }) : null,
+    extra || null
+  );
+}
+
+/** 提瓦特索引：把 11 屏变成可点击的导航卡片（点一下跳回那一屏） */
+function renderHomeIndex(config) {
+  const wrap = qs('#homeIndex');
+  if (!wrap) return;
+  clear(wrap);
+
+  const slides = Array.isArray(config.hero?.slides) ? config.hero.slides.filter(Boolean) : [];
+  if (slides.length < 2) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+
+  const grid = el('div', { class: 'index-grid' });
+  slides.forEach((slide, index) => {
+    grid.appendChild(
+      el('button', {
+        class: 'index-card',
+        type: 'button',
+        'aria-label': `跳转到第 ${index + 1} 屏：${slide.title || ''}`,
+        onclick: () => state.gallery?.goTo(index),
+      },
+        el('span', { class: 'index-no', text: String(index + 1).padStart(2, '0') }),
+        el('span', { class: 'index-body' },
+          el('span', { class: 'index-title', text: hasText(slide.title) ? slide.title : `第 ${index + 1} 屏` }),
+          hasText(slide.subtitle) ? el('span', { class: 'index-sub', text: slide.subtitle }) : null)
+      )
+    );
+  });
+
+  wrap.append(homeBlockHead('提瓦特索引', '点击卡片即可跳回对应那一屏'), grid);
+}
+
+/** 站点运行信息：数据源 / 监控概况 / 服务运行时长 */
+function renderHomeRuntime(config) {
+  const wrap = qs('#homeRuntime');
+  if (!wrap) return;
+  clear(wrap);
+
+  const card = el('div', { class: 'runtime-card', id: 'homeRuntimeCard' },
+    el('div', { class: 'runtime-row' },
+      el('span', { class: 'runtime-label', text: '状态' }),
+      el('span', { class: 'runtime-value', text: '读取中…' })));
+
+  wrap.append(
+    homeBlockHead('站点运行信息', '数据源、监控概况与运行时长'),
+    card,
+    el('div', { class: 'home-block-actions' },
+      el('button', {
+        class: 'btn btn-ghost',
+        type: 'button',
+        text: '刷新信息',
+        onclick: () => loadRuntime(),
+      }))
+  );
+
+  loadRuntime();
+}
+
+async function loadRuntime() {
+  const card = qs('#homeRuntimeCard');
+  if (!card) return;
+
+  const [summary, health] = await Promise.all([
+    fetchWithTimeout('/api/status/summary', { headers: { Accept: 'application/json' } }, 9000)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null),
+    fetchWithTimeout('/health', { headers: { Accept: 'application/json' } }, 6000)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null),
+  ]);
+
+  const summaryData = summary?.summary || summary || {};
+  const rows = [];
+
+  rows.push(['数据源', summary?.source === 'live' ? '真实 Uptime Kuma' : summary?.source === 'mock' ? 'Mock 演示模式' : '未知']);
+  rows.push(['监控概况', `${summaryData.total ?? 0} 个监控 · 在线 ${summaryData.up ?? 0} · 异常 ${summaryData.down ?? 0}`]);
+  rows.push(['数据更新', formatRelativeTime(summary?.lastUpdated)]);
+  rows.push(['实时推送', summary?.stale ? '数据可能过期（已降级）' : 'SSE 长连接正常']);
+  rows.push(['服务运行', formatDuration(health?.uptime)]);
+  rows.push(['访问通道', health?.sseClients != null ? `${health.sseClients} 个实时连接` : '--']);
+
+  clear(card);
+  for (const [label, value] of rows) {
+    card.appendChild(
+      el('div', { class: 'runtime-row' },
+        el('span', { class: 'runtime-label', text: label }),
+        el('span', { class: 'runtime-value', text: String(value) }))
+    );
+  }
+}
+
+/** 在下方内容区向上滚 → 一次手势回退约一屏，直到回到画廊 */
 function bindContentWheelBack() {
   const content = qs('#homeContent');
   if (!content || content.dataset.wheelBound) return;
   content.dataset.wheelBound = '1';
 
   content.addEventListener('wheel', (event) => {
-    if (event.deltaY >= 0) return;              // 只处理向上滚
-    const top = content.getBoundingClientRect().top;
-    if (top > 8) return;                        // 还没滚到内容区顶部，交给原生滚动
+    if (event.deltaY >= 0) return;      // 只处理向上滚（向下交给原生滚动）
+    const y = window.scrollY;
+    if (y <= 0) return;                 // 已经在顶部：交给画廊自己的翻屏逻辑
+
     event.preventDefault();
-    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    const stepPx = window.innerHeight * 0.92;
+    window.scrollTo({
+      top: Math.max(0, y - stepPx),
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    });
   }, { passive: false });
 }
 
@@ -483,7 +591,11 @@ function renderGallery(config) {
     container,
     dots,
     scrollHint: qs('#scrollHint'),
-    onCta: (view) => navigate(view),
+    onCta: (view) => {
+      // 「进入网站」= 进入站点主体（滚到画廊下方内容区）；其余值走视图切换
+      if (view === 'home') scrollToHomeContent();
+      else navigate(view);
+    },
     // 当前屏变化：月亮只在首屏出现（-1 = 画廊整体滚出视口）
     onSlideChange: (index) => {
       state.currentSlide = index;

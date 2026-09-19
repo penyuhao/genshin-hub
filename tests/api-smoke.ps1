@@ -63,8 +63,11 @@ function Get-Json {
   }
   if ($MaxRedirection -ge 0) { $params.MaximumRedirection = $MaxRedirection }
   if ($Body) {
-    $params.ContentType = 'application/json'
-    $params.Body = ($Body | ConvertTo-Json -Depth 10 -Compress)
+    # 注意：PowerShell 5.1 直接用字符串作为 Body 时不会按 UTF-8 发送，
+    # 中文会被写成 "?"。这里显式转成 UTF-8 字节，避免污染配置数据。
+    $params.ContentType = 'application/json; charset=utf-8'
+    $json = $Body | ConvertTo-Json -Depth 10 -Compress
+    $params.Body = [System.Text.Encoding]::UTF8.GetBytes($json)
   }
 
   try {

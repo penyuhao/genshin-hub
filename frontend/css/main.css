@@ -680,6 +680,75 @@ body:not([data-view='home']) .scroll-hint {
 
 .status-meta { margin-top: 14px; font-size: 13px; color: var(--text-muted); }
 
+/* ---------- 提瓦特索引（点一下跳回那一屏）---------- */
+.index-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+  gap: 12px;
+}
+
+.index-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+  text-align: left;
+  border-radius: var(--radius);
+  background: rgba(18, 23, 43, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease, background 0.3s ease;
+}
+
+.index-card:hover {
+  transform: translate3d(0, -3px, 0);
+  border-color: rgba(232, 200, 119, 0.4);
+  background: rgba(232, 200, 119, 0.08);
+}
+
+.index-no {
+  flex: 0 0 auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--gold);
+  opacity: 0.75;
+  letter-spacing: 0.04em;
+}
+
+.index-body { display: grid; gap: 1px; min-width: 0; }
+.index-title { font-size: 15px; color: var(--text); }
+.index-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 站点运行信息 ---------- */
+.runtime-card {
+  padding: 8px 20px;
+  border-radius: var(--radius);
+  background: rgba(18, 23, 43, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: var(--card-shadow);
+}
+
+.runtime-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 14px;
+}
+
+.runtime-row:last-child { border-bottom: none; }
+.runtime-label { color: var(--text-muted); flex: 0 0 auto; }
+.runtime-value { color: var(--text); text-align: right; word-break: break-word; }
+
 /* ---------- 快捷入口卡片 ---------- */
 .content-card {
   padding: 20px;
