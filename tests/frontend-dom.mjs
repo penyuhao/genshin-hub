@@ -161,7 +161,11 @@ async function main() {
 
 
   console.log('[阶段3] SPA 骨架与路由');
-  check('文档标题由配置渲染', /原神功能快捷站/.test(window.document.title), window.document.title);
+  // 站点标题是可以在后台改的，所以拿接口里的实际值来比对，而不是写死一个字符串
+  const liveTitle = await fetchProxy('/api/config').then((r) => r.json()).then((c) => c?.site?.title || '').catch(() => '');
+  check('文档标题由配置渲染（与接口里的站点标题一致）',
+    Boolean(liveTitle) && window.document.title.includes(liveTitle),
+    `title="${window.document.title}" 配置标题="${liveTitle}"`);
   check('顶栏导航渲染出 4 项', qa('#nav .nav-link').length === 4, `实际 ${qa('#nav .nav-link').length}`);
   check('导航文案正确', qa('#nav .nav-link').map((a) => a.textContent).join(',') === '首页,下载,功能,关于',
     qa('#nav .nav-link').map((a) => a.textContent).join(','));
@@ -199,6 +203,25 @@ async function main() {
     && /BACKGROUND_VIEWS/.test(readSrc('server/middleware/validate.js')), '');
   check('CSS 定义了三层结构（图 / 覆盖色 / 遮罩）',
     /\.pb-image\s*\{/.test(mainCss) && /\.pb-overlay\s*\{/.test(mainCss) && /\.pb-mask\s*\{/.test(mainCss));
+
+  // 全局（星空那一层）背景：容器插在所有 .layer 之前 → 官方底图在下、星星叠在上面
+  console.log('\n[阶段3.7] 全局背景（星空那一层）与图片导入');
+  check('配置了 global 时会创建全局背景容器', Boolean(q('#globalBg')), '#globalBg 未创建');
+  check('全局背景层渲染出遮罩/图片', Boolean(q('#globalBg > .page-bg')), '');
+  check('全局背景容器排在星空之前（DOM 顺序决定层级）',
+    Boolean(q('#globalBg')) && (q('#globalBg')?.compareDocumentPosition(q('#starfield')) & 4) !== 0,
+    '需要 #globalBg 出现在 #starfield 之前');
+  check('CSS 定义了全局背景层（固定铺满视口）',
+    /\.layer-global-bg\s*\{/.test(mainCss) && /layer-global-bg/.test(mainJs));
+  check('图片字段提供「从链接导入」（官方站点美术图可一键存到本地）',
+    /从链接导入/.test(readSrc('frontend/js/admin.js')) && /uploads\/from-url/.test(readSrc('frontend/js/admin.js')), '');
+  check('导入接口有 SSRF 防护（默认拒绝内网/回环地址）',
+    /isPrivateAddress/.test(readSrc('server/routes/media.js'))
+    && /ALLOW_PRIVATE_IMAGE_IMPORT/.test(readSrc('server/routes/media.js'))
+    && /redirect: 'manual'/.test(readSrc('server/routes/media.js')), '');
+  check('导入的图片用魔数校验（不看 Content-Type 脸色）',
+    /function sniffImage/.test(readSrc('server/routes/media.js'))
+    && /ftypavif|RIFF/.test(readSrc('server/routes/media.js')), '');
 
   // 回归：前端曾有 5 分钟 localStorage TTL，缓存没过期就直接用缓存、根本不问服务端，
   // 于是后台改完配置，另一个标签页 / 刚刷新的页面依旧显示旧内容（"配置不生效"）。

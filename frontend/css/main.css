@@ -809,6 +809,26 @@ html.is-page-animating {
 /* 视图级背景要铺满整个视图（含顶部导航栏高度），内容区的背景只铺内容区 */
 .page-bg--view { min-height: 100%; }
 
+/* 全局背景（星空那一层）：固定铺满视口，且**位于星空之下** ——
+   这样官方美术图当底、星星粒子叠在上面，两层都看得到。
+   容器本身由 JS 创建（#globalBg.layer.layer-global-bg）。 */
+.layer-global-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.layer-global-bg > .page-bg {
+  position: absolute;
+  inset: 0;
+}
+
+/* 层级说明（不用额外改 z-index，靠 DOM 顺序即可）：
+   .layer-gradient(-1) → #globalBg(0，插在星空之前) → .layer-starfield(0) → 星环/极光(1) → 粒子(4)
+   于是"官方底图在下、星星粒子叠在上面"两层都看得见。 */
+
 /* ============================================================
    全局滚动进度条（顶部一条细彩线）
    数值由 JS 写进 --progress（画廊内部进度 + 页面进度一起算）
@@ -1770,8 +1790,143 @@ body:not([data-view='home']) .scroll-hint {
 .mini-btn:hover { background: rgba(232, 200, 119, 0.1); color: var(--gold); border-color: rgba(232, 200, 119, 0.4); }
 .mini-btn.danger:hover { background: rgba(239, 68, 68, 0.14); color: #ff9a9a; border-color: rgba(239, 68, 68, 0.4); }
 
-/* ---------- 保存失败：常驻错误框 + 高亮出问题的字段 ---------- */
-.form-error {
+/* ============================================================
+   后台易用性：字段分组 / 滑杆 / 遮罩选择器 / 分区侧栏
+   ============================================================ */
+
+/* 可折叠字段分组：默认只摊开"基本"，其余点标题展开 */
+.field-group {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  background: rgba(9, 13, 26, 0.4);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.field-group-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--gold);
+  list-style: none;
+  user-select: none;
+}
+
+.field-group-summary::-webkit-details-marker { display: none; }
+.field-group-summary::after { content: '▾'; opacity: 0.7; transition: transform 0.2s ease; }
+.field-group[open] > .field-group-summary::after { transform: rotate(180deg); }
+.field-group-count { font-size: 12px; color: var(--text-muted); margin-left: auto; margin-right: 8px; }
+.field-group-body { padding: 4px 14px 14px; }
+
+/* 滑杆：0~1 这类数值直接拖，比手输数字直观 */
+.range-row { display: flex; align-items: center; gap: 12px; }
+
+.range {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(232, 200, 119, 0.85), rgba(127, 216, 216, 0.7));
+  outline: none;
+}
+
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fffdf5;
+  border: 2px solid var(--gold);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fffdf5;
+  border: 2px solid var(--gold);
+  cursor: pointer;
+}
+
+.range-value {
+  min-width: 44px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* 遮罩选择器：缩略图点一下就选好 */
+.mask-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mask-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(5, 8, 16, 0.75);
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.mask-cell:hover { transform: translateY(-2px); border-color: rgba(232, 200, 119, 0.5); }
+
+.mask-cell.is-active {
+  border-color: var(--gold);
+  background: rgba(232, 200, 119, 0.14);
+  box-shadow: 0 0 0 1px rgba(232, 200, 119, 0.35) inset;
+}
+
+.mask-thumb {
+  width: 100%;
+  height: 42px;
+  border-radius: 6px;
+  background-color: #070b16;
+  background-size: 26px 26px;
+  background-repeat: repeat;
+  background-position: center;
+}
+
+.mask-name { font-size: 12px; color: var(--text-muted); }
+.mask-cell.is-active .mask-name { color: var(--gold); }
+.mask-actions { margin-top: 8px; }
+
+/* 侧栏：分组标题 + 每个区块一句话说明 */
+.admin-nav-label { display: block; }
+.admin-nav-hint { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.admin-nav-link.is-active .admin-nav-hint { color: rgba(232, 200, 119, 0.8); }
+.admin-sidebar-title { margin-top: 6px; }
+
+/* 区块标题栏吸顶：长表单里滚到哪儿都能点保存 */
+.admin-main-head {
+  position: sticky;
+  top: calc(var(--topbar-h) + 8px);
+  z-index: 20;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(9, 13, 26, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* ---------- 保存失败：常驻错误框 + 高亮出问题的字段 ---------- */.form-error {
   margin: 0 0 18px;
   padding: 14px 16px;
   border-radius: 12px;

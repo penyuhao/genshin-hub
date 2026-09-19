@@ -45,6 +45,8 @@ Object.assign(process.env, {
   NODE_ENV: 'test',
   TRUST_PROXY: 'false',
   RATE_LIMIT_BYPASS_LOOPBACK: 'true',
+  // 从链接导入图片时允许访问本机地址（测试用本地图片服务；生产不要开）
+  ALLOW_PRIVATE_IMAGE_IMPORT: 'true',
   // 清掉所有外部依赖，保证测试离线且可重复
   KUMA_URL: '',
   KUMA_STATUS_SLUG: '',
@@ -298,6 +300,82 @@ async function main() {
     body: JSON.stringify({ layers: [{ view: 'about', maskBlend: 'url(javascript:alert(1))' }] }),
   });
   check('拒绝非法的混合模式（防 CSS 注入）', badBlend.status === 400, `HTTP ${badBlend.status}`);
+
+  const globalOk = await jsonReq('/api/config/backgrounds', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      layers: [
+        { view: 'global', image: '/images/masks/vignette.svg', blur: 2, dim: 0.3, maskOpacity: 0.2 },
+      ],
+    }),
+  });
+  check('支持「全局（星空那一层）」背景', globalOk.status === 200, `HTTP ${globalOk.status}`);
+
+  console.log('\n[7] 从链接导入图片（官方站点美术图）');
+  // 本地起一个只服务测试图片的站点（隔离实例已用 ALLOW_PRIVATE_IMAGE_IMPORT=true 放开内网限制）
+  const http = await import('node:http');
+  const served = { png: pngBuffer(), text: Buffer.from('这不是图片'), hits: 0 };
+  const imgServer = http.createServer((req, res) => {
+    served.hits += 1;
+    if (req.url?.includes('redirect')) {
+      res.writeHead(302, { Location: '/cover.png' });
+      res.end();
+      return;
+    }
+    if (req.url?.includes('text')) {
+      res.writeHead(200, { 'Content-Type': 'image/png' }); // 故意谎报类型
+      res.end(served.text);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'image/png' });
+    res.end(served.png);
+  });
+  await new Promise((resolve) => imgServer.listen(0, '127.0.0.1', resolve));
+  const imgPort = imgServer.address().port;
+  const imgBase = `http://127.0.0.1:${imgPort}`;
+
+  const imported = await jsonReq('/api/uploads/from-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ url: `${imgBase}/cover.png` }),
+  });
+  check('可以从链接把图片抓到本地', imported.status === 200 && /^\/uploads\/images\//.test(imported.json.url || ''),
+    `HTTP ${imported.status} ${JSON.stringify(imported.json).slice(0, 120)}`);
+  check('抓下来的图片真的落盘了',
+    Boolean(imported.json.url) && fs.existsSync(path.join(DATA_DIR, 'uploads', 'images', path.basename(imported.json.url))),
+    imported.json.url);
+  check('记录来源地址（便于追溯）', String(imported.json.source || '').includes('/cover.png'), imported.json.source);
+
+  const redirected = await jsonReq('/api/uploads/from-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ url: `${imgBase}/redirect.png` }),
+  });
+  check('会跟随跳转（每一跳都重新校验）', redirected.status === 200, `HTTP ${redirected.status}`);
+
+  const notImage = await jsonReq('/api/uploads/from-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ url: `${imgBase}/text.png` }),
+  });
+  check('谎报 Content-Type 的非图片被魔数校验拦下', notImage.status === 400,
+    `HTTP ${notImage.status} ${JSON.stringify(notImage.json)}`);
+
+  const badProtocol = await jsonReq('/api/uploads/from-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ url: 'file:///etc/passwd' }),
+  });
+  check('只允许 http/https 协议', badProtocol.status === 400, `HTTP ${badProtocol.status}`);
+
+  const noAuth = await jsonReq('/api/uploads/from-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: `${imgBase}/cover.png` }),
+  });
+  check('未登录不允许抓取外部图片', noAuth.status === 401, `HTTP ${noAuth.status}`);
+  imgServer.close();
 
   console.log('\n=== 测试结果 ===');
   console.log(`  通过: ${pass}`);

@@ -249,8 +249,8 @@ const fontsSchema = z.object({
 });
 
 // ---------- 页面背景（高度自定义：背景图 + 遮罩图 + 覆盖色 + 模糊/压暗） ----------
-/** 可自定义背景的界面 */
-const BACKGROUND_VIEWS = ['homeContent', 'download', 'tools', 'about'];
+/** 可自定义背景的界面（global = 星空那一层全局背景） */
+const BACKGROUND_VIEWS = ['global', 'homeContent', 'download', 'tools', 'about'];
 
 /**
  * 每个界面一层"外观"：

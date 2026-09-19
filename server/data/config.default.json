@@ -215,6 +215,19 @@
   "backgrounds": {
     "layers": [
       {
+        "view": "global",
+        "label": "全局底图",
+        "image": "",
+        "blur": 0,
+        "dim": 0.25,
+        "fixed": true,
+        "overlayOpacity": 0.35,
+        "mask": "/images/masks/vignette.svg",
+        "maskOpacity": 0.45,
+        "maskBlend": "multiply",
+        "maskSize": "cover"
+      },
+      {
         "view": "homeContent",
         "label": "首页内容区",
         "image": "",

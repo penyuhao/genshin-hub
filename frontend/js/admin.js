@@ -48,8 +48,34 @@ function normalizeUrlInput(value) {
   return value;
 }
 
-/** 上传体积上限（来自服务端，可被部署环境用环境变量调整） */
-let uploadLimitsCache = null;
+/** 内置遮罩素材（与 frontend/images/masks 对应）：点一下就填好，不用手打路径 */
+const BUILTIN_MASKS = [  { path: '/images/masks/dots.svg', label: '点阵' },
+  { path: '/images/masks/grid.svg', label: '方格' },
+  { path: '/images/masks/lines.svg', label: '斜纹' },
+  { path: '/images/masks/rays.svg', label: '放射光' },
+  { path: '/images/masks/waves.svg', label: '波浪' },
+  { path: '/images/masks/vignette.svg', label: '暗角' },
+  { path: '/images/masks/hex.svg', label: '蜂窝' },
+  { path: '/images/masks/sparkle.svg', label: '星芒' },
+];
+
+/** 背景可作用的界面 → 给用户看的名字（数组条目标题也用这个） */
+const VIEW_LABELS = {
+  global: '全局（星空那一层）',
+  homeContent: '首页 · 内容区',
+  download: '下载页',
+  tools: '功能页',
+  about: '关于页',
+};
+
+/** 侧栏分组：把 14 个区块按用途分开，找东西更快 */
+const SECTION_GROUPS = [
+  { title: '内容', keys: ['site', 'hero', 'backgrounds', 'navigation', 'links', 'download', 'about'] },
+  { title: '外观', keys: ['theme', 'features', 'music'] },
+  { title: '系统', keys: ['fonts', '__kuma', '__security', '__backups'] },
+];
+
+/** 上传体积上限（来自服务端，可被部署环境用环境变量调整） */let uploadLimitsCache = null;
 async function fetchUploadLimits() {
   if (uploadLimitsCache) return uploadLimitsCache;
   try {
@@ -88,26 +114,27 @@ const SECTIONS = [
         label: '画廊屏',
         type: 'array',
         itemLabel: '屏',
+        itemTitle: (item, index) => item?.title || `第 ${index + 1} 屏`,
         fields: [
-          { key: 'title', label: '标题', type: 'text', required: true },
-          { key: 'subtitle', label: '副标题（拉丁字母会走架空文字）', type: 'text' },
-          { key: 'desc', label: '描述文案', type: 'textarea', rows: 3 },
-          { key: 'bgImage', label: '背景图片', type: 'image' },
+          { key: 'title', label: '标题', type: 'text', required: true, group: '基本' },
+          { key: 'subtitle', label: '副标题（拉丁字母会走架空文字）', type: 'text', group: '基本' },
+          { key: 'desc', label: '描述文案', type: 'textarea', rows: 3, group: '基本' },
+          { key: 'bgImage', label: '背景图片', type: 'image', group: '基本' },
           {
             key: 'bgVideo',
             label: '背景视频（填了就用视频当背景，上面那张图自动变成封面）',
             type: 'video',
+            group: '基本',
             hint: '推荐 MP4（H.264）1920×1080、10~20 秒、5MB 以内；必须静音才能自动播放',
           },
-          { key: 'videoMuted', label: '视频静音（关掉后浏览器会拒绝自动播放）', type: 'boolean', default: true },
-          { key: 'videoLoop', label: '视频循环播放', type: 'boolean', default: true },
-          { key: 'videoOpacity', label: '视频不透明度（0.2~1）', type: 'number', min: 0.2, max: 1, step: 0.05, default: 1 },
-          { key: 'font', label: '使用字体', type: 'select', options: FONT_OPTIONS },
-          { key: 'textColor', label: '标题颜色', type: 'color' },
+          { key: 'font', label: '使用字体', type: 'select', options: FONT_OPTIONS, group: '基本', hint: '中文标题统一回退衬线，靠字距/描边体现差异' },
+          { key: 'textColor', label: '标题颜色', type: 'color', group: '标题样式' },
           {
             key: 'effect',
             label: '标题特效',
             type: 'select',
+            group: '标题样式',
+            hint: '9 种可选；保存后前台即时生效',
             options: [
               { value: 'shine', label: '光幕扫过（柔光飘过，默认）' },
               { value: 'gradient', label: '渐变填充（流动）' },
@@ -124,6 +151,7 @@ const SECTIONS = [
             key: 'align',
             label: '文字水平对齐',
             type: 'select',
+            group: '排版位置',
             options: [
               { value: 'left', label: '靠左' },
               { value: 'center', label: '居中' },
@@ -134,19 +162,38 @@ const SECTIONS = [
             key: 'vertical',
             label: '文字垂直位置',
             type: 'select',
+            group: '排版位置',
             options: [
               { value: 'top', label: '偏上' },
               { value: 'center', label: '居中' },
               { value: 'bottom', label: '偏下' },
             ],
           },
-          { key: 'offsetX', label: '水平微调（%，正数向右）', type: 'number', min: -45, max: 45, default: 0 },
-          { key: 'offsetY', label: '垂直微调（%，正数向下）', type: 'number', min: -45, max: 45, default: 0 },
-          { key: 'titleScale', label: '标题字号倍率（0.5~1.8）', type: 'number', min: 0.5, max: 1.8, step: 0.05, default: 1 },
-          { key: 'scrim', label: '本屏遮罩强度（0.2~1，留空用全局）', type: 'number', min: 0.2, max: 1, step: 0.05, default: 0.9 },
-          { key: 'kenBurns', label: '背景缓慢缩放（Ken Burns）', type: 'boolean' },
-          { key: 'cta', label: '按钮文案（留空则不显示）', type: 'text' },
-          { key: 'ctaView', label: '按钮跳转到', type: 'select', options: VIEW_OPTIONS },
+          {
+            key: 'offsetX', label: '水平微调', type: 'number', min: -45, max: 45, default: 0,
+            slider: true, step: 1, group: '排版位置', hint: '正数向右（单位 %）',
+          },
+          {
+            key: 'offsetY', label: '垂直微调', type: 'number', min: -45, max: 45, default: 0,
+            slider: true, step: 1, group: '排版位置', hint: '正数向下（单位 %）',
+          },
+          {
+            key: 'titleScale', label: '标题字号倍率', type: 'number', min: 0.5, max: 1.8, step: 0.05, default: 1,
+            slider: true, group: '排版位置',
+          },
+          {
+            key: 'scrim', label: '本屏遮罩强度', type: 'number', min: 0.2, max: 1, step: 0.05, default: 0.9,
+            slider: true, group: '背景与可读性', hint: '越大文字越清楚、背景越暗；留空用全局设置',
+          },
+          { key: 'kenBurns', label: '背景缓慢缩放（Ken Burns）', type: 'boolean', group: '背景与可读性' },
+          { key: 'videoMuted', label: '视频静音（关掉后浏览器会拒绝自动播放）', type: 'boolean', default: true, group: '背景与可读性' },
+          { key: 'videoLoop', label: '视频循环播放', type: 'boolean', default: true, group: '背景与可读性' },
+          {
+            key: 'videoOpacity', label: '视频不透明度', type: 'number', min: 0.2, max: 1, step: 0.05, default: 1,
+            slider: true, group: '背景与可读性',
+          },
+          { key: 'cta', label: '按钮文案（留空则不显示）', type: 'text', group: '按钮' },
+          { key: 'ctaView', label: '按钮跳转到', type: 'select', options: VIEW_OPTIONS, group: '按钮' },
         ],
       },
     ],
@@ -183,37 +230,39 @@ const SECTIONS = [
     key: 'backgrounds',
     label: '页面背景',
     desc: '给每个界面单独配背景：背景图 + 覆盖色 + 遮罩图（PNG/SVG，可上传），支持模糊、压暗与固定视差。'
-      + '内置遮罩可直接填：/images/masks/dots.svg、grid.svg、lines.svg、rays.svg、waves.svg、vignette.svg、hex.svg、sparkle.svg',
+      + '内置遮罩可直接填：/images/masks/dots.svg、grid.svg、lines.svg、rays.svg、waves.svg、vignette.svg、hex.svg、sparkle.svg。'
+      + '「全局（星空那一层）」适合放官方站点的美术图：在官网右键图片「复制图片地址」，用「从链接导入」把它存到本站，星星粒子会叠在图上。',
     fields: [
       {
         key: 'layers',
         label: '界面背景',
         type: 'array',
         itemLabel: '个界面',
+        itemTitle: (item) => VIEW_LABELS[item?.view] || '未选择界面',
         fields: [
           {
             key: 'view',
             label: '应用到哪个界面',
             type: 'select',
+            group: '基本',
             options: [
+              { value: 'global', label: '全局（星空 / 整个站点的底图）' },
               { value: 'homeContent', label: '首页 · 画廊下方内容区' },
               { value: 'download', label: '下载页' },
               { value: 'tools', label: '功能页（监控面板）' },
               { value: 'about', label: '关于页' },
             ],
           },
-          { key: 'image', label: '背景图（留空 = 保持透明，能看到星空背景）', type: 'image' },
-          { key: 'blur', label: '背景图模糊（px，0~24）', type: 'number', min: 0, max: 24, step: 1, default: 0 },
-          { key: 'dim', label: '背景图压暗（0~1，越大越暗）', type: 'number', min: 0, max: 1, step: 0.05, default: 0.25 },
-          { key: 'fixed', label: '背景固定不动（滚动时有视差感）', type: 'boolean', default: false },
-          { key: 'overlayColor', label: '覆盖色（统一色调，可留空）', type: 'color' },
-          { key: 'overlayOpacity', label: '覆盖色不透明度（0~1）', type: 'number', min: 0, max: 1, step: 0.05, default: 0.35 },
-          { key: 'mask', label: '遮罩 / 装饰图（PNG/SVG，可上传）', type: 'image' },
-          { key: 'maskOpacity', label: '遮罩不透明度（0~1）', type: 'number', min: 0, max: 1, step: 0.05, default: 0.18 },
+          { key: 'image', label: '背景图', type: 'image', group: '基本', hint: '留空 = 保持透明，能看到星空背景；也可以点「从链接导入」把官方站点的美术图存到本地' },
+          { key: 'mask', label: '遮罩 / 装饰图', type: 'mask', group: '基本', hint: '点下面的缩略图即可选用（内置素材）；也可以填自己的图片地址或上传' },
           {
-            key: 'maskBlend',
-            label: '遮罩混合模式',
-            type: 'select',
+            key: 'maskOpacity', label: '遮罩不透明度', type: 'number', group: '遮罩',
+            min: 0, max: 1, step: 0.02, default: 0.18, slider: true,
+            hint: '建议 0.1~0.25：太高会盖住底图',
+          },
+          {
+            key: 'maskBlend', label: '遮罩混合模式', type: 'select', group: '遮罩',
+            hint: '深色背景下 screen（发光）最好看；想让纹理压暗背景就用 multiply',
             options: [
               { value: 'screen', label: 'screen（发光，深色背景下最好看）' },
               { value: 'overlay', label: 'overlay（提对比）' },
@@ -224,15 +273,29 @@ const SECTIONS = [
             ],
           },
           {
-            key: 'maskSize',
-            label: '遮罩铺法',
-            type: 'select',
+            key: 'maskSize', label: '遮罩铺法', type: 'select', group: '遮罩',
+            hint: '小图（点阵/方格）用"平铺成纹理"，整张装饰图用"拉伸铺满"',
             options: [
               { value: 'tile', label: '平铺成纹理（小图推荐）' },
               { value: 'cover', label: '拉伸铺满' },
               { value: 'contain', label: '完整显示一张' },
             ],
           },
+          { key: 'overlayColor', label: '覆盖色（统一色调，可留空）', type: 'color', group: '调色' },
+          {
+            key: 'overlayOpacity', label: '覆盖色不透明度', type: 'number', group: '调色',
+            min: 0, max: 1, step: 0.05, default: 0.35, slider: true,
+          },
+          {
+            key: 'blur', label: '背景图模糊', type: 'number', group: '调色',
+            min: 0, max: 24, step: 1, default: 0, slider: true,
+            hint: '背景图太抢眼时加一点模糊（4~8px），文字会更清楚',
+          },
+          {
+            key: 'dim', label: '背景图压暗', type: 'number', group: '调色',
+            min: 0, max: 1, step: 0.05, default: 0.25, slider: true,
+          },
+          { key: 'fixed', label: '背景固定不动（滚动时有视差感）', type: 'boolean', group: '调色', default: false },
         ],
       },
     ],
@@ -589,21 +652,48 @@ export class AdminPanel {
         versionLine.textContent = '后台版本未知';
       });
 
-    const sidebar = el('aside', { class: 'admin-sidebar' },
-      el('p', { class: 'admin-sidebar-title', text: '配置区块' }),
-      ...SECTIONS.map((section) =>
-        el('a', {
-          class: `admin-nav-link${section.key === this.activeSection ? ' is-active' : ''}`,
-          href: `#admin/${section.key}`,
-          dataset: { section: section.key },
-          text: section.label,
-          onclick: (event) => {
-            event.preventDefault();
-            this.selectSection(section.key);
+    const sidebar = el('aside', { class: 'admin-sidebar' });
+    // 按用途分组，并在每个区块后面显示"改了会怎样"的一句话说明
+    const sectionsByKey = new Map(SECTIONS.map((s) => [s.key, s]));
+    const HINTS = {
+      site: '站点标题、Logo、页脚',
+      hero: '画廊每一屏的字与图',
+      backgrounds: '每个界面的背景与遮罩',
+      navigation: '顶部导航的文案与顺序',
+      links: '首页的快捷入口卡片',
+      download: '下载页的卡片与链接',
+      about: '关于页的文字',
+      theme: '配色、圆角、遮罩强度',
+      features: '各视觉模块开关',
+      music: '背景音乐地址与音量',
+      fonts: '上传/登记字体',
+      __kuma: '对接 Uptime Kuma',
+      __security: '改密码、验证码开关',
+      __backups: '配置快照与还原',
+    };
+    for (const group of SECTION_GROUPS) {
+      const links = group.keys.map((key) => sectionsByKey.get(key)).filter(Boolean);
+      if (!links.length) continue;
+      sidebar.appendChild(el('p', { class: 'admin-sidebar-title', text: group.title }));
+      for (const section of links) {
+        sidebar.appendChild(
+          el('a', {
+            class: `admin-nav-link${section.key === this.activeSection ? ' is-active' : ''}`,
+            href: `#admin/${section.key}`,
+            dataset: { section: section.key },
+            title: HINTS[section.key] || section.desc || '',
+            onclick: (event) => {
+              event.preventDefault();
+              this.selectSection(section.key);
+            },
           },
-        })),
-      versionLine
-    );
+            el('span', { class: 'admin-nav-label', text: section.label }),
+            HINTS[section.key] ? el('span', { class: 'admin-nav-hint', text: HINTS[section.key] }) : null)
+        );
+      }
+    }
+
+    sidebar.appendChild(versionLine);
 
     const main = el('section', { class: 'admin-main', id: 'adminMain' });
 
@@ -694,12 +784,43 @@ export class AdminPanel {
   }
 
   /** 构建一个区块的编辑器（表单 + JSON 源码） */
+  /**
+   * 把一组字段渲染成"可折叠的分组"。
+   * 区块级和数组条目内都用它 —— 后者尤其重要：像「页面背景」这种一个界面十来个字段的，
+   * 平铺出来就是一屏几十个输入框，分组后先看到"基本"，需要时再展开"遮罩 / 调色"。
+   */
+  buildGroupedFields(section, fields, formState) {
+    const groups = new Map();
+    for (const field of fields) {
+      const name = field.group || '基本';
+      if (!groups.has(name)) groups.set(name, []);
+      groups.get(name).push(field);
+    }
+
+    const nodes = [];
+    for (const [name, groupFields] of groups) {
+      const body = el('div', { class: 'field-group-body' });
+      for (const field of groupFields) {
+        body.appendChild(this.buildField(section, field, formState, formState[field.key]));
+      }
+      const expanded = groups.size === 1 || name === '基本';
+      nodes.push(
+        el('details', { class: 'field-group', open: expanded },
+          el('summary', { class: 'field-group-summary' },
+            el('span', { class: 'field-group-name', text: name }),
+            el('span', { class: 'field-group-count', text: `${groupFields.length} 项` })),
+          body)
+      );
+    }
+    return nodes;
+  }
+
   buildSectionEditor(section, data) {
     const formState = JSON.parse(JSON.stringify(data ?? {}));
     const formEl = el('form', { class: 'form-grid' });
 
-    for (const field of section.fields || []) {
-      formEl.appendChild(this.buildField(section, field, formState, formState[field.key]));
+    for (const node of this.buildGroupedFields(section, section.fields || [], formState)) {
+      formEl.appendChild(node);
     }
 
     const saveBtn = el('button', { class: 'btn btn-primary', type: 'submit', text: '保存配置' });
@@ -825,18 +946,70 @@ export class AdminPanel {
     } else if (field.type === 'number') {
       const initial = value ?? field.default ?? 0;
       formState[field.key] = Number(initial);
+
+      // 小范围数值（0~1 的不透明度、倍率之类）用滑杆，比手输数字直观得多
+      if (field.slider) {
+        const badge = el('span', { class: 'range-value', text: String(initial) });
+        const range = el('input', {
+          class: 'range', type: 'range',
+          min: String(field.min ?? 0), max: String(field.max ?? 1), step: String(field.step ?? 0.05),
+          value: String(initial), dataset: { key: field.key },
+          oninput: () => {
+            formState[field.key] = Number(range.value);
+            badge.textContent = range.value;
+          },
+        });
+        wrap.appendChild(el('div', { class: 'range-row' }, range, badge));
+      } else {
+        const input = el('input', {
+          class: 'input', type: 'number', value: String(initial),
+          min: field.min, max: field.max, step: field.step ?? 1, dataset: { key: field.key },
+          oninput: () => {
+            formState[field.key] = Number(input.value);
+            // 遮罩强度支持实时预览
+            if (field.key === 'overlayStrength') {
+              document.documentElement.style.setProperty('--scrim', String(input.value));
+            }
+          },
+        });
+        wrap.appendChild(input);
+      }
+      if (field.hint) wrap.appendChild(el('span', { class: 'field-hint', text: field.hint }));
+    } else if (field.type === 'mask') {
+      // 遮罩/装饰图：内置素材直接点选（可视化），也可以填自己的地址
       const input = el('input', {
-        class: 'input', type: 'number', value: String(initial),
-        min: field.min, max: field.max, step: field.step ?? 1, dataset: { key: field.key },
-        oninput: () => {
-          formState[field.key] = Number(input.value);
-          // 遮罩强度支持实时预览
-          if (field.key === 'overlayStrength') {
-            document.documentElement.style.setProperty('--scrim', String(input.value));
-          }
+        class: 'input', type: 'text', value: value ?? '',
+        placeholder: '内置遮罩点下面选，或填 /uploads/images/… 、https://…',
+        dataset: { key: field.key },
+        oninput: () => { formState[field.key] = input.value; },
+      });
+      const clearBtn = el('button', {
+        class: 'mini-btn danger', type: 'button', text: '不用遮罩',
+        onclick: () => {
+          input.value = '';
+          formState[field.key] = '';
+          grid.querySelectorAll('.mask-cell').forEach((cell) => cell.classList.remove('is-active'));
         },
       });
-      wrap.appendChild(input);
+      const grid = el('div', { class: 'mask-grid' });
+      for (const item of BUILTIN_MASKS) {
+        const active = String(value ?? '') === item.path;
+        grid.appendChild(
+          el('button', {
+            class: `mask-cell${active ? ' is-active' : ''}`, type: 'button', title: item.path,
+            dataset: { mask: item.path },
+            onclick: () => {
+              input.value = item.path;
+              formState[field.key] = item.path;
+              grid.querySelectorAll('.mask-cell').forEach((cell) => cell.classList.remove('is-active'));
+              grid.querySelector(`.mask-cell[data-mask="${item.path}"]`)?.classList.add('is-active');
+            },
+          },
+            el('span', { class: 'mask-thumb', style: { backgroundImage: `url("${item.path}")` } }),
+            el('span', { class: 'mask-name', text: item.label }))
+        );
+      }
+      wrap.append(grid, input, el('div', { class: 'mask-actions' }, clearBtn));
       if (field.hint) wrap.appendChild(el('span', { class: 'field-hint', text: field.hint }));
     } else if (field.type === 'color') {
       const input = el('input', {
@@ -918,6 +1091,38 @@ export class AdminPanel {
         class: 'mini-btn', type: 'button', text: '上传图片',
         onclick: () => file.click(),
       });
+      // 从链接导入：官方站点/壁纸站的美术资源常常只能"复制图片地址"，
+      // 直接填 https 外链虽然能用，但受对方 CDN 策略影响；导入后存到本地最稳。
+      const importBtn = el('button', {
+        class: 'mini-btn', type: 'button', text: '从链接导入', title: '粘贴图片地址（例如官方站点的美术图），下载并保存到本站',
+        onclick: async () => {
+          const picked = window.prompt('粘贴图片地址（https://…，支持 PNG / JPEG / GIF / WebP / AVIF）', input.value || '');
+          const target = String(picked || '').trim();
+          if (!target) return;
+          importBtn.textContent = '导入中…';
+          try {
+            const res = await fetchWithTimeout('/api/uploads/from-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` },
+              body: JSON.stringify({ url: target }),
+            }, 30000);
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 401) return this.handleUnauthorized();
+            if (!res.ok) {
+              toast(data.error || `导入失败（HTTP ${res.status}）`, 'error', 5200);
+              return;
+            }
+            input.value = data.url;
+            formState[field.key] = data.url;
+            preview.src = data.url;
+            toast(`已导入并保存到本站（${Math.round((data.size || 0) / 1024)}KB）`, 'success');
+          } catch (err) {
+            toast(`导入失败：${err.message}`, 'error');
+          } finally {
+            importBtn.textContent = '从链接导入';
+          }
+        },
+      });
       file.addEventListener('change', async () => {
         const chosen = file.files?.[0];
         if (!chosen) return;
@@ -933,7 +1138,7 @@ export class AdminPanel {
         file.value = '';
       });
 
-      wrap.append(el('div', { class: 'upload-row' }, preview, el('div', { style: { flex: '1', minWidth: '220px' } }, input, el('div', { style: { marginTop: '8px' } }, uploadBtn)), file));
+      wrap.append(el('div', { class: 'upload-row' }, preview, el('div', { style: { flex: '1', minWidth: '220px' } }, input, el('div', { style: { marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' } }, uploadBtn, importBtn)), file));
     } else if (field.type === 'video') {
       // 背景视频：URL + 上传 + 预览 + 清除
       const preview = el('video', {
@@ -1028,8 +1233,12 @@ export class AdminPanel {
 
       items.forEach((item, index) => {
         const block = el('div', { class: 'repeat-item' });
+        // 条目标题：能用「界面名 / 卡片名」这类可读文字就别用"第 N 项"
+        const title = typeof field.itemTitle === 'function'
+          ? field.itemTitle(item, index)
+          : `${field.itemLabel || '条目'} ${index + 1}`;
         const head = el('div', { class: 'repeat-head' },
-          el('span', {}, el('span', { class: 'repeat-index', text: String(index + 1) }), ` ${field.itemLabel || '条目'}`),
+          el('span', {}, el('span', { class: 'repeat-index', text: String(index + 1) }), ` ${title}`),
           el('div', { class: 'admin-actions' },
             el('button', {
               class: 'mini-btn', type: 'button', text: '上移',
@@ -1057,8 +1266,9 @@ export class AdminPanel {
         );
         block.appendChild(head);
 
-        for (const sub of field.fields || []) {
-          block.appendChild(this.buildField({ key: field.key }, sub, item, item[sub.key]));
+        // 条目内部同样分组渲染（这里才是"一屏几十个输入框"的重灾区）
+        for (const node of this.buildGroupedFields({ key: field.key }, field.fields || [], item)) {
+          block.appendChild(node);
         }
         list.appendChild(block);
       });

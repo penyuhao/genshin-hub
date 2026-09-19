@@ -289,6 +289,40 @@ async function main() {
     check('非法链接没有被写进配置', JSON.stringify(linksBefore) === JSON.stringify(linksAfter), '');
   }
 
+  // ---------- 4. 后台易用性：分组折叠 / 滑杆 / 遮罩点选 ----------
+  console.log('\n[4] 后台易用性（分组 / 滑杆 / 遮罩选择器）');
+  const bgLink = qa(window, '.admin-nav-link').find((a) => a.textContent.includes('页面背景'));
+  bgLink?.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  const bgReady = await waitFor(
+    () => (q(window, '#adminMain h2')?.textContent || '').includes('页面背景')
+      && qa(window, '#adminMain .repeat-item').length > 0,
+    8000
+  );
+  check('「页面背景」区块可打开', bgReady, `当前区块="${q(window, '#adminMain h2')?.textContent}"`);
+  check('字段被分成可折叠的小组（不再是一屏几十个输入框）',
+    qa(window, '#adminMain .field-group').length >= 2,
+    `${qa(window, '#adminMain .field-group').length} 组`);
+  check('数组条目显示可读名称（界面名，而不是"第 N 项"）',
+    qa(window, '#adminMain .repeat-head').some((head) => /全局|首页|下载页|功能页|关于页/.test(head.textContent)),
+    qa(window, '#adminMain .repeat-head')[0]?.textContent);
+  check('0~1 这类数值用滑杆（更好拖）', qa(window, '#adminMain input[type="range"]').length >= 1,
+    `${qa(window, '#adminMain input[type="range"]').length} 个滑杆`);
+
+  const maskCell = qa(window, '#adminMain .mask-cell')[0];
+  check('内置遮罩有可视化选择器（缩略图点选）', Boolean(maskCell), `${qa(window, '#adminMain .mask-cell').length} 个可选`);
+  if (maskCell) {
+    const maskInput = q(window, '#adminMain .repeat-item input[data-key="mask"]');
+    const beforeMask = maskInput?.value;
+    maskCell.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    check('点一下缩略图就把遮罩路径填好了',
+      Boolean(maskInput) && maskInput.value.startsWith('/images/masks/') && maskInput.value !== beforeMask,
+      `=> ${maskInput?.value}`);
+    check('选中的缩略图有高亮态', Boolean(q(window, '#adminMain .mask-cell.is-active')));
+  }
+  check('侧栏按用途分组（内容 / 外观 / 系统）',
+    qa(window, '.admin-sidebar .admin-sidebar-title').map((t) => t.textContent).join('/').includes('外观'),
+    qa(window, '.admin-sidebar .admin-sidebar-title').map((t) => t.textContent).join('/'));
+
   check('无运行时报错', noise.length === 0, noise.slice(0, 3).join(' | '));
 
   console.log('\n=== 测试结果 ===');

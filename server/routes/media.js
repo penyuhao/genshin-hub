@@ -167,6 +167,136 @@ router.post('/uploads/image', requireAdmin, handleUpload(uploadImage.single('fil
   });
 });
 
+/* ------------------------------------------------------------------
+   从链接导入图片（管理员）
+   场景：官方站点的美术资源 / 壁纸往往只能在网页里右键"复制图片地址"，
+   直接把这些 https 链接填进配置虽然能用（CSP 允许 https 图片），但会受制于
+   对方 CDN 的 referer 策略、也可能哪天失效。这个接口把远程图片抓下来存到本地。
+   因为服务端要去访问用户给的地址，安全性上必须做限制：
+     · 只允许 http/https，且拒绝解析到内网/回环/链路本地地址的域名（SSRF 防护）
+     · 手动跟随最多 3 次跳转，每一跳都重新校验
+     · 限制体积与超时，落盘前用**魔数**校验它真的是图片（不看 Content-Type 脸色）
+   ------------------------------------------------------------------ */
+
+/** 内网 / 保留地址判断（IPv4 + IPv6） */
+function isPrivateAddress(address) {
+  const addr = String(address || '').toLowerCase();
+  if (!addr) return true;
+  if (addr === '::1' || addr === '::' || addr.startsWith('fe80:') || addr.startsWith('fc') || addr.startsWith('fd')) return true;
+  const v4 = addr.startsWith('::ffff:') ? addr.slice(7) : addr;
+  const m = v4.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false; // 不是 IPv4 形式（例如公网 IPv6）就交给后面的 DNS 判断
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  if (a === 10 || a === 127 || a === 0) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true; // 运营商级 NAT
+  return false;
+}
+
+/** 允许抓内网地址（默认关闭；仅用于本地测试或纯内网部署） */
+const allowPrivateImport = () => String(process.env.ALLOW_PRIVATE_IMAGE_IMPORT || '').toLowerCase() === 'true';
+
+async function assertPublicUrl(rawUrl) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw Object.assign(new Error('地址格式不正确'), { status: 400 });
+  }
+  if (!/^https?:$/.test(url.protocol)) {
+    throw Object.assign(new Error('只支持 http / https 地址'), { status: 400 });
+  }
+  if (allowPrivateImport()) return url;
+
+  const dns = require('dns').promises;
+  let records = [];
+  try {
+    records = await dns.lookup(url.hostname, { all: true });
+  } catch {
+    throw Object.assign(new Error(`域名解析失败：${url.hostname}`), { status: 400 });
+  }
+  if (!records.length || records.some((r) => isPrivateAddress(r.address))) {
+    throw Object.assign(new Error('该地址指向内网或本机，已拒绝（可用 ALLOW_PRIVATE_IMAGE_IMPORT=true 放开）'), { status: 400 });
+  }
+  return url;
+}
+
+/** 图片魔数校验（不看扩展名与 Content-Type） */
+function sniffImage(buffer) {
+  if (buffer.length < 12) return '';
+  if (buffer[0] === 0x89 && buffer.toString('latin1', 1, 4) === 'PNG') return '.png';
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return '.jpg';
+  if (buffer.toString('latin1', 0, 3) === 'GIF') return '.gif';
+  if (buffer.toString('latin1', 0, 4) === 'RIFF' && buffer.toString('latin1', 8, 12) === 'WEBP') return '.webp';
+  if (buffer.toString('latin1', 4, 12).includes('ftypavif')) return '.avif';
+  return '';
+}
+
+router.post('/uploads/from-url', requireAdmin, async (req, res, next) => {
+  const maxBytes = IMAGE_MAX_MB * 1024 * 1024;
+  try {
+    const input = String(req.body?.url || '').trim();
+    if (!input) return res.status(400).json({ error: '请提供图片地址' });
+
+    let url = await assertPublicUrl(input);
+    let response = null;
+
+    // 手动跟随跳转：每一跳都重新做一次安全校验
+    for (let hop = 0; hop < 4; hop += 1) {
+      response = await fetch(url.href, {
+        redirect: 'manual',
+        headers: { 'User-Agent': 'genshin-hub-image-import', Accept: 'image/*' },
+        signal: AbortSignal.timeout(15000),
+      });
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get('location');
+        if (!location) break;
+        url = await assertPublicUrl(new URL(location, url).href);
+        continue;
+      }
+      break;
+    }
+
+    if (!response || !response.ok) {
+      return res.status(400).json({ error: `下载失败（HTTP ${response?.status || '无响应'}）` });
+    }
+
+    const declared = Number(response.headers.get('content-length') || 0);
+    if (declared && declared > maxBytes) {
+      return res.status(413).json({ error: `图片过大（上限 ${IMAGE_MAX_MB}MB）` });
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > maxBytes) {
+      return res.status(413).json({ error: `图片过大（上限 ${IMAGE_MAX_MB}MB）` });
+    }
+
+    const ext = sniffImage(buffer);
+    if (!ext) {
+      return res.status(400).json({ error: '这个地址返回的不是图片（支持 PNG / JPEG / GIF / WebP / AVIF）' });
+    }
+
+    await fsp.mkdir(IMAGE_DIR, { recursive: true });
+    const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`;
+    await fsp.writeFile(path.join(IMAGE_DIR, filename), buffer);
+
+    return res.json({
+      ok: true,
+      url: `${paths.IMAGE_URL_PREFIX}/${filename}`,
+      size: buffer.length,
+      source: url.href,
+    });
+  } catch (err) {
+    if (err?.status) return res.status(err.status).json({ error: err.message });
+    if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+      return res.status(400).json({ error: '下载超时（对方站点太慢或不可达）' });
+    }
+    return next(err);
+  }
+});
+
 /** POST /api/uploads/video — 上传画廊背景视频（管理员） */
 router.post('/uploads/video', requireAdmin, handleUpload(uploadVideo.single('file'), VIDEO_MAX_MB), async (req, res, next) => {
   try {

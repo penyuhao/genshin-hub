@@ -687,6 +687,7 @@ function renderGallery(config) {
 
 /** 每个可自定义背景的界面 → 容器元素 + CSS 变量前缀 */
 const BACKGROUND_TARGETS = {
+  global: { selector: '#globalBg', class: 'page-bg--global', create: true },
   homeContent: { selector: '#homeContent', class: 'page-bg--home-content' },
   download: { selector: '#view-download', class: 'page-bg--view' },
   tools: { selector: '#view-tools', class: 'page-bg--view' },
@@ -710,7 +711,17 @@ function renderBackgrounds(config) {
   }
 
   for (const [view, target] of Object.entries(BACKGROUND_TARGETS)) {
-    const host = qs(target.selector);
+    let host = qs(target.selector);
+
+    // global：星空那一层的全局背景容器（放在所有 .layer 之前，星星仍然叠在图片上面）
+    // 只有真的配了 global 才创建这个容器，没配就完全不插节点
+    if (!host && target.create && byView.has(view)) {
+      host = el('div', { class: 'layer layer-global-bg', id: 'globalBg', 'aria-hidden': 'true' });
+      const body = document.body;
+      const firstLayer = body.querySelector('.layer');
+      if (firstLayer) body.insertBefore(host, firstLayer);
+      else body.prepend(host);
+    }
     if (!host) continue;
 
     host.querySelectorAll(':scope > .page-bg').forEach((node) => node.remove());
