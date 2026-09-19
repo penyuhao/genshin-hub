@@ -46,7 +46,7 @@ COPY docker-entrypoint.sh ./
 RUN mkdir -p /data \
  && addgroup -S app && adduser -S app -G app \
  && chown -R app:app /app /data \
- && chmod -R u+rwX,go+rX /app 
+ && chmod -R u+rwX,go+rX /app \
  && chmod +x /app/docker-entrypoint.sh
 
 VOLUME ["/data"]
