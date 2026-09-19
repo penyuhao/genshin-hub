@@ -7,7 +7,7 @@
 ![license](https://img.shields.io/badge/license-MIT-e8c877)
 ![node](https://img.shields.io/badge/node-%3E%3D18-7fd8d8)
 ![frontend](https://img.shields.io/badge/frontend-vanilla%20ESM-e8c877)
-![tests](https://img.shields.io/badge/tests-34%20%2B%2053%20%2B%2022%20%2B%20205%20%2B%2036%20passing-4ade80)
+![tests](https://img.shields.io/badge/tests-34%20%2B%2053%20%2B%2022%20%2B%20210%20%2B%2036%20passing-4ade80)
 ![audit](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-4ade80)
 
 **亮点**
@@ -466,7 +466,7 @@ npm run test:sse          # SSE 实时推送验证（约 40 秒）
 | 跨平台冒烟（`tests/smoke.mjs`） | **34 / 34 通过**（服务存活 / 安全头与 **CSP 媒体策略** / 版本号 / 静态资源 MIME / **缓存策略与 304** / 公开接口 / 验证码与权限边界 / SSE） |
 | 上传链路与站点体检（`tests/uploads.mjs`） | **53 / 53 通过**（自建隔离实例：视频容器校验、伪造扩展名被拒且不留文件、Range 请求、**链接归一化**、**页面背景字段校验**、配置字段校验、回归图片上传） |
 | **后台保存链路与易用性（`tests/admin-save.mjs`）** | **22 / 22 通过**（真实点击「保存配置」→ 服务端配置变更 + 备份生成 + 连续保存 + 错误框与字段标红 + 非法值不写入） |
-| 前端 DOM 集成 | **205 / 205 通过**（含 11 屏画廊、七国齐全、字体接入、柔光扫过无硬边、背景视频、**9 种标题特效与进度条**、滚轮不被画廊抢走、配置缓存与跨标签页同步、错误框与字段高亮） |
+| 前端 DOM 集成 | **210 / 210 通过**（含 11 屏画廊、七国齐全、字体接入、柔光扫过无硬边、背景视频、**9 种标题特效与进度条**、滚轮不被画廊抢走、配置缓存与跨标签页同步、错误框与字段高亮） |
 | 子页面刷新回归（`tests/refresh.mjs`） | **36 / 36 通过**（`#download` / `#tools` / `#about` / `#home` 各自直接刷新：只显示一个视图、导航高亮正确、画廊仍有 11 屏、切回首页首屏被激活） |
 | 后端接口冒烟（PowerShell） | **34 / 34 通过**（另有 19 项"需管理员令牌"的用例：`.env` 密码与面板不一致时自动跳过，共 53 项） |
 | SSE 实时推送 | 初始快照 + 变化广播 **通过** |
