@@ -163,12 +163,14 @@ let redirectServer = null;
  * 不设置这些变量时行为完全不变（纯 http），放在 Nginx / Caddy 后面也不需要它们。
  */
 function resolveTls() {
+  // 相对路径按**仓库根目录**解析（与 DATA_DIR 等保持一致），这样 .env 里可以直接写 .local/tls/cert.pem
+  const resolveFsPath = (p) => (path.isAbsolute(p) ? p : path.join(paths.PROJECT_ROOT, p));
   const readText = (value, label) => {
     const raw = String(value || '').trim();
     if (!raw) return '';
     if (raw.includes('-----BEGIN')) return raw; // 直接粘的 PEM 内容
     try {
-      return require('fs').readFileSync(raw, 'utf-8');
+      return require('fs').readFileSync(resolveFsPath(raw), 'utf-8');
     } catch (err) {
       throw new Error(`读取${label}失败：${raw}（${err.code || err.message}）`);
     }
@@ -180,7 +182,7 @@ function resolveTls() {
   if (pfxPath) {
     let pfx;
     try {
-      pfx = require('fs').readFileSync(pfxPath);
+      pfx = require('fs').readFileSync(resolveFsPath(pfxPath));
     } catch (err) {
       throw new Error(`读取 PFX 失败：${pfxPath}（${err.code || err.message}）`);
     }
