@@ -2025,6 +2025,24 @@ body:not([data-view='home']) .scroll-hint {
   -webkit-backdrop-filter: blur(10px);
 }
 
+/* ---------- 版本与更新 ---------- */
+.update-notes {
+  max-height: 300px;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #070b16;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cfe3d4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.update-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+
 /* ---------- 站点体检 ---------- */
 .diag-banner {
   display: flex;

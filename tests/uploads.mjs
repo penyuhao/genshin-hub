@@ -449,6 +449,35 @@ async function main() {
     body: JSON.stringify({ layers: [{ view: 'about', mask: '/images/masks/waves.svg', maskOpacity: 0.14 }] }),
   });
 
+  console.log('\n[9] 版本更新检查');
+  const ghServer = http.createServer((req, res) => {
+    if (req.url?.includes('/releases/latest')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ tag_name: 'v99.0.0', name: 'v99.0.0 测试版', published_at: new Date().toISOString(), html_url: 'https://example.com/releases/tag/v99.0.0', body: '- 测试更新说明' }));
+      return;
+    }
+    res.writeHead(404).end('{}');
+  });
+  await new Promise((resolve) => ghServer.listen(0, '127.0.0.1', resolve));
+  process.env.GITHUB_API_BASE = `http://127.0.0.1:${ghServer.address().port}`;
+
+  const updNoAuth = await jsonReq('/api/update/check');
+  check('更新检查需要管理员权限', updNoAuth.status === 401, `HTTP ${updNoAuth.status}`);
+
+  const upd = await jsonReq('/api/update/check', { headers: { Authorization: `Bearer ${token}` } });
+  check('能查到 GitHub 上的最新版本并比对',
+    upd.status === 200 && upd.json?.latest === '99.0.0' && upd.json?.hasUpdate === true,
+    `HTTP ${upd.status} latest=${upd.json?.latest} hasUpdate=${upd.json?.hasUpdate} current=${upd.json?.current}`);
+  check('返回更新说明与发布页地址', Boolean(upd.json?.notes) && /^https?:\/\//.test(upd.json?.htmlUrl || ''), upd.json?.htmlUrl);
+
+  const applyBlocked = await jsonReq('/api/update/apply', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  check('一键更新默认关闭（未开 ALLOW_SELF_UPDATE 时拒绝）',
+    applyBlocked.status === 403 && /ALLOW_SELF_UPDATE/.test(applyBlocked.json?.error || ''),
+    `HTTP ${applyBlocked.status} ${JSON.stringify(applyBlocked.json).slice(0, 100)}`);
+  ghServer.close();
   console.log('\n=== 测试结果 ===');
   console.log(`  通过: ${pass}`);
   console.log(`  失败: ${fail}`);

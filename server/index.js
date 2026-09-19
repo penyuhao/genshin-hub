@@ -15,6 +15,7 @@ const authRoutes = require('./routes/auth');
 const mediaRoutes = require('./routes/media');
 const settingsRoutes = require('./routes/settings');
 const diagnosticsRoutes = require('./routes/diagnostics');
+const updateRoutes = require('./routes/update');
 
 const configService = require('./services/configService');
 const fontService = require('./services/fontService');
@@ -114,6 +115,7 @@ app.use('/api/status', statusRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/diagnostics', diagnosticsRoutes);
+app.use('/api/update', updateRoutes);
 app.use('/api', mediaRoutes);
 
 // 未命中的 API 一律 JSON 404，不要落到 SPA

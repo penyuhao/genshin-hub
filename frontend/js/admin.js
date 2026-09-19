@@ -126,7 +126,7 @@ const VIEW_LABELS = {
 const SECTION_GROUPS = [
   { title: '内容', keys: ['site', 'hero', 'backgrounds', 'navigation', 'links', 'download', 'about'] },
   { title: '外观', keys: ['theme', 'features', 'music'] },
-  { title: '系统', keys: ['fonts', '__diagnostics', '__kuma', '__security', '__backups'] },
+  { title: '系统', keys: ['fonts', '__diagnostics', '__update', '__kuma', '__security', '__backups'] },
 ];
 
 /** 上传体积上限（来自服务端，可被部署环境用环境变量调整） */let uploadLimitsCache = null;
@@ -826,6 +826,137 @@ export class AdminPanel {
     await run();
   }
 
+  /** 版本与更新：检查 GitHub 上的最新 Release，可选一键更新 */
+  async renderUpdate(main) {
+    clear(main);
+
+    const info = el('div', { class: 'diag-result' },
+      el('p', { class: 'field-hint', text: '正在检查 GitHub 上的最新版本…' }));
+
+    const checkBtn = el('button', { class: 'btn btn-ghost', type: 'button', text: '重新检查' });
+    const applyBtn = el('button', { class: 'btn btn-primary', type: 'button', text: '立即更新', hidden: true });
+
+    const render = (data) => {
+      clear(info);
+
+      const hasUpdate = Boolean(data.hasUpdate);
+      info.appendChild(
+        el('div', { class: `diag-banner ${data.error ? 'is-warn' : hasUpdate ? 'is-warn' : 'is-ok'}` },
+          el('strong', {
+            text: data.error
+              ? '检查失败'
+              : hasUpdate
+                ? `发现新版本 v${data.latest}（当前 v${data.current}）`
+                : `已是最新版本 v${data.current} 🎉`,
+          }),
+          el('span', { class: 'diag-meta', text: [
+            data.repo ? `仓库 ${data.repo}` : '未配置仓库地址',
+            data.publishedAt ? `发布于 ${new Date(data.publishedAt).toLocaleString()}` : '',
+          ].filter(Boolean).join(' · ') }))
+      );
+
+      if (data.error) {
+        info.appendChild(el('p', { class: 'diag-hint', text: data.error }));
+      }
+
+      if (data.notes) {
+        info.appendChild(
+          el('details', { class: 'field-group', open: hasUpdate },
+            el('summary', { class: 'field-group-summary' },
+              el('span', { text: `v${data.latest} 更新说明` }),
+              el('span', { class: 'field-group-count', text: '点开看' })),
+            el('div', { class: 'field-group-body' },
+              el('pre', { class: 'update-notes', text: data.notes })))
+        );
+      }
+
+      // 一键更新的开关状态与入口
+      if (hasUpdate || data.selfUpdateEnabled) {
+        info.appendChild(
+          el('div', { class: 'update-actions' },
+            data.selfUpdateEnabled
+              ? applyBtn
+              : el('p', { class: 'field-hint', text: '一键更新未开启。想用就在 .env 里设置 ALLOW_SELF_UPDATE=true（要求是 git 检出、工作区干净），或用下面的命令手动更新。' }),
+            data.htmlUrl ? el('a', { class: 'mini-btn', href: data.htmlUrl, target: '_blank', rel: 'noopener noreferrer', text: '在 GitHub 查看' }) : null)
+        );
+      }
+
+      info.appendChild(
+        el('details', { class: 'field-group' },
+          el('summary', { class: 'field-group-summary' },
+            el('span', { text: '手动更新命令' }),
+            el('span', { class: 'field-group-count', text: '3 行' })),
+          el('div', { class: 'field-group-body' },
+            el('pre', { class: 'update-notes', text: 'git pull\nnpm install --prefix server\n# 然后重启进程：pm2 restart / systemctl restart / docker compose up -d --build' })))
+      );
+    };
+
+    const check = async () => {
+      checkBtn.classList.add('is-loading');
+      checkBtn.textContent = '检查中…';
+      try {
+        const res = await fetchWithTimeout('/api/update/check', {
+          headers: { Authorization: `Bearer ${this.token}` },
+        }, 20000);
+        if (res.status === 401) return this.handleUnauthorized();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || `检查失败（HTTP ${res.status}）`, 'error');
+          return;
+        }
+        render(data);
+        applyBtn.hidden = !data.selfUpdateEnabled;
+      } catch (err) {
+        toast(`检查失败：${err.message}`, 'error');
+      } finally {
+        checkBtn.classList.remove('is-loading');
+        checkBtn.textContent = '重新检查';
+      }
+    };
+
+    applyBtn.addEventListener('click', async () => {
+      if (!window.confirm('将从 GitHub 拉取最新代码并安装依赖，确定继续？\n（更新后需要重启进程才会生效）')) return;
+      applyBtn.classList.add('is-loading');
+      applyBtn.textContent = '更新中…';
+      try {
+        const res = await fetchWithTimeout('/api/update/apply', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${this.token}` },
+        }, 180000);
+        if (res.status === 401) return this.handleUnauthorized();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || `更新失败（HTTP ${res.status}）`, 'error', 8000);
+        } else {
+          toast('代码已更新，请重启进程让新版本生效', 'success', 8000);
+        }
+        const steps = (data.steps || []).map((s) => `$ ${s.cmd}\n${s.output}`).join('\n\n');
+        if (steps) {
+          info.appendChild(el('pre', { class: 'update-notes', text: steps }));
+        }
+        if (data.restartHint) info.appendChild(el('p', { class: 'diag-hint', text: data.restartHint }));
+      } catch (err) {
+        toast(`更新失败：${err.message}`, 'error');
+      } finally {
+        applyBtn.classList.remove('is-loading');
+        applyBtn.textContent = '立即更新';
+      }
+    });
+
+    checkBtn.addEventListener('click', check);
+
+    main.append(
+      el('div', { class: 'admin-main-head' },
+        el('div', {},
+          el('h2', { text: '版本与更新' }),
+          el('p', { class: 'desc', text: '从 GitHub 检查最新 Release；开启 ALLOW_SELF_UPDATE 后还能一键 git pull + 装依赖（更新后需重启进程）' })),
+        el('div', { class: 'admin-actions' }, checkBtn)),
+      info
+    );
+
+    await check();
+  }
+
   async renderShell() {
     clear(this.root);
     this.root.appendChild(el('div', { class: 'admin-shell', id: 'adminShell' }));
@@ -856,6 +987,7 @@ export class AdminPanel {
       features: '各视觉模块开关',
       music: '背景音乐地址与音量',
       fonts: '上传/登记字体',
+      __update: '检查/执行版本更新',
       __diagnostics: '一键体检：哪里有问题',
       __kuma: '对接 Uptime Kuma',
       __security: '改密码、验证码开关',
@@ -960,6 +1092,11 @@ export class AdminPanel {
 
     if (key === '__diagnostics') {
       await this.renderDiagnostics(main);
+      return;
+    }
+
+    if (key === '__update') {
+      await this.renderUpdate(main);
       return;
     }
 
