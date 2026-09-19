@@ -69,6 +69,8 @@ export function showView(view, { scrollTop = true } = {}) {
   if (scrollTop) window.scrollTo({ top: 0, behavior: 'auto' });
 
   document.body.dataset.view = target;
+  // 同时标记在 <html> 上：首页的"页面级滚动吸附"等样式需要按视图开关
+  document.documentElement.dataset.view = target;
   document.dispatchEvent(new CustomEvent('view-enter', { detail: { view: target } }));
   listeners.forEach((fn) => {
     try {

@@ -736,6 +736,80 @@ p { margin: 0; }
 }
 
 /* ============================================================
+   首页：页面滚动只允许"整齐"地停在两个位置 —— 画廊顶部 / 内容区顶部
+   否则从下方内容区往上滚时，会停在"画廊只露出一小半"的拼贴状态：
+   上面是最后一屏（坎瑞亚）被截掉下半截的空背景，下面接着内容区开头的空白。
+   用 proximity（只在停下时离锚点很近才吸附），不影响在内容区里正常阅读。
+   ============================================================ */
+html[data-view='home'] {
+  scroll-snap-type: y proximity;
+}
+
+html[data-view='home'] .gallery-stage,
+html[data-view='home'] .home-content {
+  scroll-snap-align: start;
+}
+
+/* 逐帧滚动动画期间临时关掉页面吸附，避免浏览器每帧把位置拽回锚点 */
+html.is-page-animating {
+  scroll-snap-type: none;
+}
+
+/* ============================================================
+   页面背景层（每个界面都能自定义：背景图 + 覆盖色 + 遮罩图）
+   结构由 JS 生成：.page-bg > .pb-image / .pb-overlay / .pb-mask
+   全部 pointer-events: none，纯装饰，不挡交互
+   ============================================================ */
+.page-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.page-bg > i {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+/* 背景图：模糊 + 压暗都在这一层上做 */
+.pb-image {
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: var(--pb-attachment, scroll);
+  filter: blur(var(--pb-blur, 0)) brightness(var(--pb-dim, 1));
+  transform: scale(1.02); /* 轻微放大，避免模糊后边缘露白 */
+}
+
+/* 覆盖色：统一色调（在背景图之上、遮罩之下） */
+.pb-overlay { background: var(--pb-overlay, transparent); }
+
+/* 遮罩 / 装饰图：混合模式决定是"发光"还是"压暗" */
+.pb-mask {
+  background-position: center;
+  background-repeat: repeat;
+  mix-blend-mode: screen;
+}
+
+.pb-mask.is-cover { background-size: cover; background-repeat: no-repeat; }
+.pb-mask.is-contain { background-size: contain; background-repeat: no-repeat; }
+.pb-mask.is-tile { background-size: auto; background-repeat: repeat; }
+
+/* 有背景层时：容器要有定位，内容要浮在背景之上 */
+.has-page-bg { position: relative; }
+#view-download.has-page-bg > .page-container,
+#view-tools.has-page-bg > .page-container,
+#view-about.has-page-bg > .page-container,
+#homeContent.has-page-bg > .home-block { position: relative; z-index: 1; }
+
+/* 视图级背景要铺满整个视图（含顶部导航栏高度），内容区的背景只铺内容区 */
+.page-bg--view { min-height: 100%; }
+
+/* ============================================================
    全局滚动进度条（顶部一条细彩线）
    数值由 JS 写进 --progress（画廊内部进度 + 页面进度一起算）
    ============================================================ */

@@ -171,7 +171,9 @@ function bindContentWheelBack() {
   if (!content || content.dataset.wheelBound) return;
   content.dataset.wheelBound = '1';
 
+  const stage = qs('.gallery-stage');
   let animating = false;
+
   content.addEventListener('wheel', (event) => {
     if (event.deltaY >= 0) return;      // 只处理向上滚（向下交给原生滚动）
     const y = window.scrollY;
@@ -180,7 +182,15 @@ function bindContentWheelBack() {
     event.preventDefault();
     if (animating) return;              // 一次手势只走一步，不被连续事件反复打断
     animating = true;
-    animateWindowScroll(Math.max(0, y - window.innerHeight * 0.92), 520, () => {
+
+    // 一步回退约一屏。但如果这一步会停在"画廊只露出一小半"的位置，
+    // 就直接对齐到画廊顶部 —— 否则画面会卡在拼贴状态：
+    // 上面是坎瑞亚（最后一屏）被截掉下半截的空背景，下面接着内容区开头的空白。
+    const step = Math.max(0, y - window.innerHeight * 0.92);
+    const galleryBottom = stage ? stage.offsetTop + stage.offsetHeight : 0;
+    const target = step > 0 && step < galleryBottom ? 0 : step;
+
+    animateWindowScroll(target, 520, () => {
       animating = false;
     });
   }, { passive: false });
@@ -348,8 +358,14 @@ function animateWindowScroll(to, duration = 520, done) {
 
   const from = window.scrollY || window.pageYOffset || 0;
   const delta = to - from;
+  // 逐帧写入期间先关掉页面级滚动吸附，否则浏览器会在每帧之后重新吸附，
+  // 动画会被"拽"回锚点（和画廊内部动画期间关掉 scroll-snap 是同一个道理）
+  const root = document.documentElement;
+  root.classList.add('is-page-animating');
+
   const finish = () => {
     windowScrollRaf = null;
+    root.classList.remove('is-page-animating');
     done?.();
   };
 
@@ -622,6 +638,7 @@ function renderAll(config) {
   applySiteMeta(config.site || {});
   renderNav(config);
   renderGallery(config);
+  renderBackgrounds(config);
   renderHomeContent(config);
   renderDownload(config);
   renderAbout(config);
@@ -662,6 +679,89 @@ function renderGallery(config) {
 
   // 一屏一步（滚轮由 Gallery 自己接管做动画，触摸交给 CSS 吸附）
   state.gallery.render(config.hero?.slides || []);
+}
+
+/* ============================================================
+   页面背景（高度自定义：背景图 + 覆盖色 + 遮罩图 + 模糊/压暗）
+   ============================================================ */
+
+/** 每个可自定义背景的界面 → 容器元素 + CSS 变量前缀 */
+const BACKGROUND_TARGETS = {
+  homeContent: { selector: '#homeContent', class: 'page-bg--home-content' },
+  download: { selector: '#view-download', class: 'page-bg--view' },
+  tools: { selector: '#view-tools', class: 'page-bg--view' },
+  about: { selector: '#view-about', class: 'page-bg--view' },
+};
+
+/** 安全化：只允许站内路径或 http(s) 链接，杜绝把奇怪的东西塞进 CSS url() */
+function safeCssUrl(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  if (!/^(\/[^\s"'()\\]*|https?:\/\/[^\s"'()\\]+)$/i.test(raw)) return '';
+  if (raw.includes('..')) return '';
+  return raw;
+}
+
+function renderBackgrounds(config) {
+  const layers = Array.isArray(config.backgrounds?.layers) ? config.backgrounds.layers : [];
+  const byView = new Map();
+  for (const layer of layers) {
+    if (layer && BACKGROUND_TARGETS[layer.view]) byView.set(layer.view, layer);
+  }
+
+  for (const [view, target] of Object.entries(BACKGROUND_TARGETS)) {
+    const host = qs(target.selector);
+    if (!host) continue;
+
+    host.querySelectorAll(':scope > .page-bg').forEach((node) => node.remove());
+
+    const layer = byView.get(view);
+    const image = safeCssUrl(layer?.image);
+    const mask = safeCssUrl(layer?.mask);
+    const hasOverlay = layer?.overlayColor && Number(layer?.overlayOpacity) > 0;
+
+    if (!image && !mask && !hasOverlay) {
+      host.classList.remove('has-page-bg');
+      continue;
+    }
+
+    const node = el('div', {
+      class: `page-bg ${target.class}`,
+      'aria-hidden': 'true',
+      style: {
+        '--pb-blur': `${Number(layer?.blur) || 0}px`,
+        '--pb-dim': String(1 - (Number(layer?.dim) || 0)),
+        '--pb-attachment': layer?.fixed ? 'fixed' : 'scroll',
+      },
+    });
+
+    if (image) {
+      node.appendChild(el('i', { class: 'pb-image', style: { backgroundImage: `url("${image}")` } }));
+    }
+    if (hasOverlay) {
+      node.appendChild(el('i', {
+        class: 'pb-overlay',
+        style: {
+          background: layer.overlayColor,
+          opacity: String(Number(layer.overlayOpacity)),
+        },
+      }));
+    }
+    if (mask) {
+      const size = layer.maskSize || 'cover';
+      node.appendChild(el('i', {
+        class: `pb-mask is-${size}`,
+        style: {
+          backgroundImage: `url("${mask}")`,
+          opacity: String(layer.maskOpacity ?? 0.35),
+          mixBlendMode: layer.maskBlend || 'screen',
+        },
+      }));
+    }
+
+    host.classList.add('has-page-bg');
+    host.prepend(node);
+  }
 }
 
 /* ============================================================

@@ -212,6 +212,62 @@
     "cardShadow": "0 12px 40px rgba(0, 0, 0, 0.45)",
     "overlayStrength": 0.9
   },
+  "backgrounds": {
+    "layers": [
+      {
+        "view": "homeContent",
+        "label": "首页内容区",
+        "image": "",
+        "blur": 0,
+        "dim": 0.25,
+        "fixed": false,
+        "overlayOpacity": 0.35,
+        "mask": "/images/masks/dots.svg",
+        "maskOpacity": 0.18,
+        "maskBlend": "screen",
+        "maskSize": "tile"
+      },
+      {
+        "view": "download",
+        "label": "下载页",
+        "image": "",
+        "blur": 0,
+        "dim": 0.25,
+        "fixed": false,
+        "overlayOpacity": 0.35,
+        "mask": "/images/masks/grid.svg",
+        "maskOpacity": 0.12,
+        "maskBlend": "screen",
+        "maskSize": "tile"
+      },
+      {
+        "view": "tools",
+        "label": "功能页",
+        "image": "",
+        "blur": 0,
+        "dim": 0.25,
+        "fixed": false,
+        "overlayOpacity": 0.35,
+        "mask": "/images/masks/lines.svg",
+        "maskOpacity": 0.1,
+        "maskBlend": "screen",
+        "maskSize": "tile"
+      },
+      {
+        "view": "about",
+        "label": "关于页",
+        "image": "",
+        "blur": 0,
+        "dim": 0.25,
+        "fixed": false,
+        "overlayOpacity": 0.35,
+        "mask": "/images/masks/waves.svg",
+        "maskOpacity": 0.14,
+        "maskBlend": "screen",
+        "maskSize": "cover"
+      }
+    ]
+  },
   "navigation": {
     "items": [
       {

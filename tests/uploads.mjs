@@ -254,6 +254,51 @@ async function main() {
     spaceLink.status === 400 && Array.isArray(spaceLink.json?.details) && spaceLink.json.details.length > 0,
     `HTTP ${spaceLink.status} ${JSON.stringify(spaceLink.json?.details || null)}`);
 
+  console.log('\n[6] 页面背景（背景图 / 覆盖色 / 遮罩图）校验');
+  const goodBg = await jsonReq('/api/config/backgrounds', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      layers: [
+        {
+          view: 'download',
+          image: '/uploads/images/bg.webp',
+          blur: 6,
+          dim: 0.4,
+          fixed: true,
+          overlayColor: '#0b1020',
+          overlayOpacity: 0.5,
+          mask: '/images/masks/grid.svg',
+          maskOpacity: 0.2,
+          maskBlend: 'overlay',
+          maskSize: 'tile',
+        },
+      ],
+    }),
+  });
+  check('合法的页面背景配置可以保存', goodBg.status === 200,
+    `HTTP ${goodBg.status} ${JSON.stringify(goodBg.json).slice(0, 140)}`);
+
+  const savedBg = (await jsonReq('/api/config')).json?.backgrounds?.layers || [];
+  check('背景字段完整持久化（含混合模式与铺法）',
+    savedBg[0]?.maskBlend === 'overlay' && savedBg[0]?.maskSize === 'tile' && savedBg[0]?.blur === 6
+    && savedBg[0]?.fixed === true,
+    JSON.stringify(savedBg[0] || null));
+
+  const badView = await jsonReq('/api/config/backgrounds', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ layers: [{ view: 'admin', mask: '/images/masks/dots.svg' }] }),
+  });
+  check('拒绝不在白名单里的界面', badView.status === 400, `HTTP ${badView.status}`);
+
+  const badBlend = await jsonReq('/api/config/backgrounds', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ layers: [{ view: 'about', maskBlend: 'url(javascript:alert(1))' }] }),
+  });
+  check('拒绝非法的混合模式（防 CSS 注入）', badBlend.status === 400, `HTTP ${badBlend.status}`);
+
   console.log('\n=== 测试结果 ===');
   console.log(`  通过: ${pass}`);
   console.log(`  失败: ${fail}`);

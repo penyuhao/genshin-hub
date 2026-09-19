@@ -248,11 +248,48 @@ const fontsSchema = z.object({
     .max(30),
 });
 
+// ---------- 页面背景（高度自定义：背景图 + 遮罩图 + 覆盖色 + 模糊/压暗） ----------
+/** 可自定义背景的界面 */
+const BACKGROUND_VIEWS = ['homeContent', 'download', 'tools', 'about'];
+
+/**
+ * 每个界面一层"外观"：
+ *   image          背景图（留空 = 用主题色渐变）
+ *   mask           叠在上面的遮罩/装饰图（PNG / SVG，自带透明通道最好用）
+ *   maskOpacity    遮罩不透明度
+ *   maskBlend      遮罩混合模式（screen / overlay 之类，决定"发光"还是"压暗"）
+ *   maskSize       cover 铺满 / contain 完整显示 / tile 平铺成纹理
+ *   overlayColor   覆盖色（在背景图之上、遮罩之下，用来统一色调）
+ *   overlayOpacity 覆盖色不透明度
+ *   blur           背景图模糊（px）
+ *   dim            背景图压暗（0~1）
+ *   fixed          背景固定不动（滚动时视差感）
+ */
+const backgroundLayerSchema = z.object({
+  view: z.enum(BACKGROUND_VIEWS),
+  label: cleanStr(30).optional(),
+  image: optionalUrl,
+  mask: optionalUrl,
+  maskOpacity: z.number().min(0).max(1).optional(),
+  maskBlend: z.enum(['normal', 'screen', 'overlay', 'soft-light', 'multiply', 'luminosity']).optional(),
+  maskSize: z.enum(['cover', 'contain', 'tile']).optional(),
+  overlayColor: hexColor.optional(),
+  overlayOpacity: z.number().min(0).max(1).optional(),
+  blur: z.number().min(0).max(24).optional(),
+  dim: z.number().min(0).max(1).optional(),
+  fixed: z.boolean().optional(),
+});
+
+const backgroundsSchema = z.object({
+  layers: z.array(backgroundLayerSchema).max(BACKGROUND_VIEWS.length * 2),
+});
+
 // ---------- 区块注册表 ----------
 const SECTION_SCHEMAS = {
   site: siteSchema,
   hero: heroSchema,
   theme: themeSchema,
+  backgrounds: backgroundsSchema,
   navigation: navigationSchema,
   features: featuresSchema,
   music: musicSchema,
@@ -329,6 +366,7 @@ module.exports = {
   SECTIONS,
   fontName,
   TITLE_EFFECTS,
+  BACKGROUND_VIEWS,
   loginSchema,
   kumaSettingsSchema,
   validateSection,

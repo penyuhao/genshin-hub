@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <defs><radialGradient id="fade" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#fff" stop-opacity="0.9"/>
+    <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+  </radialGradient></defs>
+  <g fill="url(#fade)">
+    <path d="M200 200L400 60L400 0L0 0L0 60Z"/>
+    <path d="M200 200L400 200L400 120Z" opacity="0.7"/>
+    <path d="M200 200L0 200L0 120Z" opacity="0.7"/>
+    <path d="M200 200L40 400L0 400L0 340Z" opacity="0.6"/>
+    <path d="M200 200L360 400L400 400L400 340Z" opacity="0.6"/>
+  </g>
+</svg>

@@ -4,6 +4,7 @@
 // 运行： node tests/frontend-dom.mjs
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { pathToFileURL } from 'node:url';
+import fs from 'node:fs';
 import path from 'node:path';
 
 const BASE = process.env.BASE_URL || 'http://localhost:3001';
@@ -168,10 +169,36 @@ async function main() {
   check('URL hash 已同步', window.location.hash === '#home', window.location.hash);
   check('启动遮罩已隐藏', q('#bootScreen')?.classList.contains('is-hidden'));
 
-  console.log('\n[阶段3.5] 配置消费');
-  check('主题变量已写入 :root', window.document.documentElement.style.getPropertyValue('--gold') === '#e8c877',
+  console.log('\n[阶段3.5] 配置消费');  check('主题变量已写入 :root', window.document.documentElement.style.getPropertyValue('--gold') === '#e8c877',
     window.document.documentElement.style.getPropertyValue('--gold'));
   check('favicon 由配置设置', (q('#faviconLink')?.getAttribute('href') || '').includes('favicon.svg'));
+
+  // 页面背景：每个界面都能单独配（背景图 + 覆盖色 + 遮罩图），默认用内置遮罩纹理
+  console.log('\n[阶段3.6] 页面背景自定义（背景图 / 覆盖色 / 遮罩图）');
+  const bgHosts = ['#homeContent', '#view-download', '#view-tools', '#view-about'];
+  check('四个界面都渲染了背景层', bgHosts.every((sel) => Boolean(q(`${sel} > .page-bg`))),
+    bgHosts.filter((sel) => !q(`${sel} > .page-bg`)).join(',') || '全部就位');
+  check('默认背景使用内置遮罩纹理（能看到星空，不会糊成一块）',
+    qa('.page-bg > .pb-mask').length >= 4 && qa('.page-bg > .pb-mask')[0]?.style.backgroundImage.includes('/images/masks/'),
+    qa('.page-bg > .pb-mask')[0]?.style.backgroundImage);
+  check('遮罩的不透明度与混合模式已写入',
+    Boolean(qa('.page-bg > .pb-mask')[0]?.style.opacity)
+    && ['screen', 'overlay', 'soft-light', 'multiply', 'luminosity', 'normal']
+      .includes(qa('.page-bg > .pb-mask')[0]?.style.mixBlendMode),
+    `${qa('.page-bg > .pb-mask')[0]?.style.opacity} / ${qa('.page-bg > .pb-mask')[0]?.style.mixBlendMode}`);
+  check('内置遮罩素材随仓库提供（8 张 SVG）',
+    ['dots', 'grid', 'lines', 'rays', 'waves', 'vignette', 'hex', 'sparkle']
+      .every((n) => fs.existsSync(path.join(ROOT, 'frontend/images/masks', `${n}.svg`))));
+  check('后台有「页面背景」区块（含遮罩 / 覆盖色 / 模糊等字段）',
+    /key: 'backgrounds'/.test(readSrc('frontend/js/admin.js'))
+    && /key: 'mask'/.test(readSrc('frontend/js/admin.js'))
+    && /key: 'maskBlend'/.test(readSrc('frontend/js/admin.js'))
+    && /key: 'overlayColor'/.test(readSrc('frontend/js/admin.js')), '');
+  check('后端 schema 校验背景层（含混合模式白名单与视图白名单）',
+    /backgroundsSchema/.test(readSrc('server/middleware/validate.js'))
+    && /BACKGROUND_VIEWS/.test(readSrc('server/middleware/validate.js')), '');
+  check('CSS 定义了三层结构（图 / 覆盖色 / 遮罩）',
+    /\.pb-image\s*\{/.test(mainCss) && /\.pb-overlay\s*\{/.test(mainCss) && /\.pb-mask\s*\{/.test(mainCss));
 
   // 回归：前端曾有 5 分钟 localStorage TTL，缓存没过期就直接用缓存、根本不问服务端，
   // 于是后台改完配置，另一个标签页 / 刚刷新的页面依旧显示旧内容（"配置不生效"）。
@@ -422,6 +449,33 @@ async function main() {
     `scrollTop=${Math.round(fakeScrollTop)}（期望 ${beforeScrolled}）`);
   fakePageOffset.value = 0;
   await sleep(60);
+
+  // 回归：从下方内容区往上滚，最后一步不能停在"画廊只露出一小半"的拼贴状态
+  // （上面是最后一屏坎瑞亚被截掉下半截的空背景、下面接着内容区开头的空白）。
+  // 触发条件是：这一步的目标位置落在画廊内部 —— 那就应该直接对齐到画廊顶部。
+  const stageEl = q('.gallery-stage');
+  Object.defineProperty(stageEl, 'offsetHeight', { configurable: true, get: () => 800 });
+  Object.defineProperty(stageEl, 'offsetTop', { configurable: true, get: () => 0 });
+  const contentEl = q('#homeContent');
+  const stubWindowHeight = 800;
+  Object.defineProperty(window, 'innerHeight', { configurable: true, get: () => stubWindowHeight });
+
+  // 停在内容区靠上位置：一步 0.92 屏会落到画廊内部 → 必须直接归 0
+  fakePageOffset.value = 1400; // 1400 - 736 = 664 < 800（画廊高度）→ 拼贴状态
+  scrollCalls.length = 0;
+  const freshWheelUp2 = new window.WheelEvent('wheel', { deltaY: -120, bubbles: true, cancelable: true });
+  contentEl.dispatchEvent(freshWheelUp2);
+  await sleep(900);
+  const lastTarget = scrollCalls.length ? scrollCalls[scrollCalls.length - 1].top : null;
+  check('从内容区上滚时不会停在"画廊半露"的拼贴状态（直接对齐画廊顶部）',
+    lastTarget !== null && Math.round(lastTarget) === 0, `最后一次 scrollTo.top=${lastTarget}`);
+  check('动画期间临时关闭页面级吸附（避免被拽回锚点）',
+    /is-page-animating/.test(mainJs) && /html\.is-page-animating/.test(mainCss));
+  check('首页启用了页面级滚动吸附（画廊顶部 / 内容区顶部两个锚点）',
+    /html\[data-view='home'\]\s*\{\s*scroll-snap-type:\s*y proximity/.test(mainCss)
+    && /\.gallery-stage,\s*\n?html\[data-view='home'\] \.home-content/.test(mainCss), '');
+  check('视图切换时同步标记 <html>（吸附样式按视图开关）',
+    /document\.documentElement\.dataset\.view/.test(readSrc('frontend/js/router.js')));
 
   // 圆点跳转
   qa('#galleryDots .gallery-dot')[10].dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));

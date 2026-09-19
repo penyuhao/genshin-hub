@@ -180,6 +180,64 @@ const SECTIONS = [
     ],
   },
   {
+    key: 'backgrounds',
+    label: '页面背景',
+    desc: '给每个界面单独配背景：背景图 + 覆盖色 + 遮罩图（PNG/SVG，可上传），支持模糊、压暗与固定视差。'
+      + '内置遮罩可直接填：/images/masks/dots.svg、grid.svg、lines.svg、rays.svg、waves.svg、vignette.svg、hex.svg、sparkle.svg',
+    fields: [
+      {
+        key: 'layers',
+        label: '界面背景',
+        type: 'array',
+        itemLabel: '个界面',
+        fields: [
+          {
+            key: 'view',
+            label: '应用到哪个界面',
+            type: 'select',
+            options: [
+              { value: 'homeContent', label: '首页 · 画廊下方内容区' },
+              { value: 'download', label: '下载页' },
+              { value: 'tools', label: '功能页（监控面板）' },
+              { value: 'about', label: '关于页' },
+            ],
+          },
+          { key: 'image', label: '背景图（留空 = 保持透明，能看到星空背景）', type: 'image' },
+          { key: 'blur', label: '背景图模糊（px，0~24）', type: 'number', min: 0, max: 24, step: 1, default: 0 },
+          { key: 'dim', label: '背景图压暗（0~1，越大越暗）', type: 'number', min: 0, max: 1, step: 0.05, default: 0.25 },
+          { key: 'fixed', label: '背景固定不动（滚动时有视差感）', type: 'boolean', default: false },
+          { key: 'overlayColor', label: '覆盖色（统一色调，可留空）', type: 'color' },
+          { key: 'overlayOpacity', label: '覆盖色不透明度（0~1）', type: 'number', min: 0, max: 1, step: 0.05, default: 0.35 },
+          { key: 'mask', label: '遮罩 / 装饰图（PNG/SVG，可上传）', type: 'image' },
+          { key: 'maskOpacity', label: '遮罩不透明度（0~1）', type: 'number', min: 0, max: 1, step: 0.05, default: 0.18 },
+          {
+            key: 'maskBlend',
+            label: '遮罩混合模式',
+            type: 'select',
+            options: [
+              { value: 'screen', label: 'screen（发光，深色背景下最好看）' },
+              { value: 'overlay', label: 'overlay（提对比）' },
+              { value: 'soft-light', label: 'soft-light（柔和）' },
+              { value: 'multiply', label: 'multiply（压暗）' },
+              { value: 'luminosity', label: 'luminosity（只取明暗）' },
+              { value: 'normal', label: 'normal（原样叠加）' },
+            ],
+          },
+          {
+            key: 'maskSize',
+            label: '遮罩铺法',
+            type: 'select',
+            options: [
+              { value: 'tile', label: '平铺成纹理（小图推荐）' },
+              { value: 'cover', label: '拉伸铺满' },
+              { value: 'contain', label: '完整显示一张' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
     key: 'navigation',
     label: '导航管理',
     desc: '导航项文案、顺序与显隐',

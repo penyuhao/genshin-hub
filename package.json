@@ -1,6 +1,6 @@
 {
   "name": "genshin-hub",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "private": true,
   "description": "原神功能快捷站 —— 七国画廊 + Uptime Kuma 监控面板 + 全可视化配置后台（零构建步骤，可部署到任何平台）",
   "keywords": [
