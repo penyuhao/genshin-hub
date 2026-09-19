@@ -506,3 +506,13 @@ Unsafe attempt to load URL https://192.168.x.x:8090/ from frame with URL http://
 
 entrypoint 现在三级兜底：`chown` → 失败则 `chmod -R a+rwX` → 再失败就打印明确提示（建议改用**命名卷**）。
 另外构建时对 `/app` 做了 `chmod -R u+rwX,go+rX`，源文件权限再奇怪也能保证可读（避免 EACCES）。
+### 公网部署的三种情况（对照检查）
+
+| 你的部署方式 | 站点对访客的协议 | 需要做什么 |
+|---|---|---|
+| 容器/进程直接暴露 http 端口（如 `:8090`） | http | 什么都不用配。**v2.15.2 起不会再发 upgrade-insecure-requests**，资源不会被打挂。公网建议前面还是加一层 TLS |
+| 反代/宝塔/飞牛面板终止 TLS，容器自己是 http | https | `TRUST_PROXY=1`（默认）+ 反代传 `X-Forwarded-Proto: https`；程序会自动补上 upgrade-insecure-requests 与 HSTS。反代里若没传这个头，也可设 `FORCE_HTTPS_HEADERS=true` |
+| 容器自己跑 https | https | 配 `SSL_CERT` + `SSL_KEY`（或 `SSL_PFX`），可选 `HTTPS_REDIRECT_PORT=80` 做 http→https 跳转 |
+
+> 判断逻辑：**「这次请求是不是 https」**（自身有证书，或 trust proxy 后 `X-Forwarded-Proto: https`）。
+> 之所以不只看 `NODE_ENV`：Docker 镜像默认就是 production，若只看它，纯 http 部署会被强行升级子资源而全站崩掉。

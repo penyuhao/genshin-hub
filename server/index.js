@@ -8,7 +8,7 @@ const path = require('path');
 const express = require('express');
 
 const paths = require('./paths');
-const { helmetConfig, corsConfig, apiLimiter } = require('./middleware/security');
+const { helmetConfig, httpsHeaders, corsConfig, apiLimiter } = require('./middleware/security');
 const configRoutes = require('./routes/config');
 const statusRoutes = require('./routes/status');
 const authRoutes = require('./routes/auth');
@@ -50,6 +50,7 @@ app.set('trust proxy', resolveTrustProxy());
 
 // ---------- 安全中间件 ----------
 app.use(helmetConfig);
+app.use(httpsHeaders); // 按请求是否为 https 追加 upgrade-insecure-requests / HSTS
 app.use(corsConfig);
 
 // ---------- 静态资源（同源托管前端，避免跨域与密钥暴露）----------

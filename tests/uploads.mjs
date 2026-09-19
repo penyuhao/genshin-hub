@@ -43,7 +43,7 @@ Object.assign(process.env, {
   PORT: String(PORT),
   HOST: '127.0.0.1',
   NODE_ENV: 'test',
-  TRUST_PROXY: 'false',
+  TRUST_PROXY: '1', // 让测试能验证 X-Forwarded-Proto=https 的场景
   RATE_LIMIT_BYPASS_LOOPBACK: 'true',
   // 从链接导入图片时允许访问本机地址（测试用本地图片服务；生产不要开）
   ALLOW_PRIVATE_IMAGE_IMPORT: 'true',
@@ -449,6 +449,16 @@ async function main() {
     body: JSON.stringify({ layers: [{ view: 'about', mask: '/images/masks/waves.svg', maskOpacity: 0.14 }] }),
   });
 
+  console.log('\n[8.5] HTTPS 相关安全头按请求判定（反代终止 TLS 也能正确工作）');
+  const plain = await jsonReq('/api/uploads/limits');
+  const plainCsp = (await fetch(`${BASE}/health`)).headers.get('content-security-policy') || '';
+  check('纯 http 请求不带 upgrade-insecure-requests（否则局域网访问会把资源全打挂）',
+    !plainCsp.includes('upgrade-insecure-requests'), plainCsp.slice(0, 80));
+  const proxied = await fetch(`${BASE}/health`, { headers: { 'X-Forwarded-Proto': 'https' } });
+  const proxiedCsp = proxied.headers.get('content-security-policy') || '';
+  check('反代声明 https 时自动补上该指令（trust proxy 生效）',
+    proxiedCsp.includes('upgrade-insecure-requests'), proxiedCsp.slice(0, 80));
+  void plain;
   console.log('\n[9] 版本更新检查');
   const ghServer = http.createServer((req, res) => {
     if (req.url?.includes('/releases/latest')) {

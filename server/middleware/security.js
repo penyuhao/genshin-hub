@@ -27,11 +27,13 @@ const helmetConfig = helmet({
       frameAncestors: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
-      upgradeInsecureRequests: tlsEnabled ? [] : null,
+      // 见下方 httpsHeaders()：这条指令按**每个请求**是否为 https 动态追加（helmet 这里先不加）
+      upgradeInsecureRequests: null,
     },
   },
   // HSTS 仅在 HTTPS 生产环境启用（Let's Encrypt + Nginx 前置）
-  hsts: isProd && tlsEnabled ? { maxAge: 31536000, includeSubDomains: true, preload: false } : false,
+  // HSTS 同样由 httpsHeaders() 按请求判定（http 上发它没意义，也避免误伤局域网 http 访问）
+  hsts: false,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   // 方案验收标准要求 X-Frame-Options: DENY（与 CSP frame-ancestors 'none' 双重保险）
   frameguard: { action: 'deny' },
@@ -118,4 +120,27 @@ const loginLimiter = rateLimit({
   message: { error: '登录尝试过于频繁，请 15 分钟后再试' },
 });
 
-module.exports = { helmetConfig, corsConfig, apiLimiter, loginLimiter, API_MAX, LOGIN_MAX, bypassLoopback, tlsEnabled };
+/**
+ * 按"这次请求是不是 https"决定要不要发 upgrade-insecure-requests 与 HSTS。
+ *
+ * 为什么必须按请求判断（而不是只看 NODE_ENV=production）：
+ *   · 直接跑 https（配了 SSL_CERT/SSL_KEY/SSL_PFX）→ 该发
+ *   · 反代/宝塔/飞牛面板终止 TLS，容器自己是 http（X-Forwarded-Proto: https，需要 trust proxy）→ 也该发
+ *   · 纯 http 部署（局域网 IP、公网 http 端口直连）→ **绝不能发**：
+ *     浏览器会把所有子资源升级成 https，css/js/图片全部 ERR_SSL_PROTOCOL_ERROR
+ */
+function httpsHeaders(req, res, next) {
+  const secure = tlsEnabled || req.secure === true;
+  if (secure) {
+    const csp = res.getHeader('Content-Security-Policy');
+    if (typeof csp === 'string' && !csp.includes('upgrade-insecure-requests')) {
+      res.setHeader('Content-Security-Policy', `${csp};upgrade-insecure-requests`);
+    }
+    if (isProd && !res.getHeader('Strict-Transport-Security')) {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+  }
+  next();
+}
+
+module.exports = { helmetConfig, httpsHeaders, corsConfig, apiLimiter, loginLimiter, API_MAX, LOGIN_MAX, bypassLoopback, tlsEnabled };
